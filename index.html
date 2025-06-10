@@ -390,96 +390,10 @@
                 flex-direction: column; /* Ułożenie przycisków w kolumnie */
             }
         }
-        /* Style for Activation Screen */
-        .activation-screen {
-            background: rgba(255, 255, 255, 0.98);
-            backdrop-filter: blur(15px);
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-            padding: 40px;
-            width: 100%;
-            max-width: 400px;
-            text-align: center;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 1000;
-        }
-
-        .activation-screen h2 {
-            color: #333;
-            font-size: 1.8rem;
-            margin-bottom: 20px;
-            background: linear-gradient(135deg, #764ba2, #667eea);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .activation-screen input[type="text"] {
-            width: calc(100% - 30px); /* Szerokość z paddingiem */
-            padding: 15px;
-            margin-bottom: 20px;
-            border: 2px solid #ddd;
-            border-radius: 10px;
-            font-size: 1rem;
-            text-align: center;
-            transition: all 0.3s ease;
-        }
-
-        .activation-screen input[type="text"]:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
-        }
-
-        .activation-screen button {
-            padding: 12px 25px;
-            background: linear-gradient(135deg, #28a745 0%, #218838 100%);
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.2);
-        }
-
-        .activation-screen button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(40, 167, 69, 0.3);
-        }
-
-        .activation-screen .error-message {
-            color: #e74c3c;
-            margin-top: 15px;
-            font-size: 0.9rem;
-        }
-
-        .activation-screen .info-message {
-            color: #666;
-            margin-top: 15px;
-            font-size: 0.85rem;
-            line-height: 1.4;
-        }
     </style>
 </head>
 <body>
-    <!-- Ekran aktywacji (domyślnie ukryty) -->
-    <div class="activation-screen" id="activationScreen" style="display: none;">
-        <h2>Wprowadź Klucz Aktywacyjny</h2>
-        <input type="text" id="activationKeyInput" placeholder="Wklej tutaj swój klucz aktywacyjny">
-        <button id="activateButton">Aktywuj</button>
-        <div class="error-message" id="activationErrorMessage"></div>
-        <div class="info-message">
-            Jeśli nie masz klucza, przejdź na stronę <a href="key.html" target="_blank">key.html</a>.
-        </div>
-    </div>
-
-    <div class="container" id="mainAppContainer" style="display: none;">
+    <div class="container">
         <div class="header">
             <h1>JPG Spammer</h1>
             <p>Wyślij anonimową wiadomość przez NGL.link</p>
@@ -554,91 +468,14 @@
                 this.isSpamming = false; // Flaga stanu spamowania
                 this.isHistoryVisible = false; // Nowa flaga do kontroli widoczności historii
                 
-                this.checkActivationKeyAndInitialize(); // Metoda do sprawdzania klucza
-            }
-
-            // Funkcja do pobierania ciasteczka
-            getCookie(name) {
-                let nameEQ = name + "=";
-                let ca = document.cookie.split(';');
-                for(let i=0; i < ca.length; i++) {
-                    let c = ca[i];
-                    while (c.charAt(0)==' ') c = c.substring(1,c.length);
-                    if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length,c.length);
-                }
-                return null;
-            }
-
-            // Funkcja do ustawiania ciasteczka
-            setCookie(name, value, days) {
-                let expires = "";
-                if (days) {
-                    let date = new Date();
-                    date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
-                    expires = "; expires=" + date.toUTCString();
-                }
-                document.cookie = name + "=" + (value || "")  + expires + "; path=/; SameSite=Lax";
-            }
-
-            async checkActivationKeyAndInitialize() {
-                const storedActivationKey = this.getCookie('activationKey');
-                const mainAppContainer = document.getElementById('mainAppContainer');
-                const activationScreen = document.getElementById('activationScreen');
-                const activationButton = document.getElementById('activateButton');
-                const activationKeyInput = document.getElementById('activationKeyInput');
-                const activationErrorMessage = document.getElementById('activationErrorMessage');
-
-                // Jeśli klucz istnieje w ciasteczkach i nie jest pusty, pokaż główną aplikację
-                if (storedActivationKey && storedActivationKey.trim() !== '') {
-                    activationScreen.style.display = 'none';
-                    mainAppContainer.style.display = 'block';
-                    this.initializeUI();
-                    this.bindEvents();
-                    this.loadHistory(); 
-                    this.checkBackendStatus(); 
-                } else {
-                    // Klucz nie istnieje lub jest pusty, pokaż ekran aktywacji
-                    mainAppContainer.style.display = 'none';
-                    activationScreen.style.display = 'block';
-                    
-                    activationButton.addEventListener('click', async () => {
-                        const enteredKey = activationKeyInput.value.trim();
-                        if (!enteredKey) {
-                            activationErrorMessage.textContent = 'Proszę wprowadzić klucz aktywacyjny.';
-                            return;
-                        }
-
-                        try {
-                            // Wysłanie klucza do backendu do weryfikacji
-                            const response = await fetch(`${this.backendBaseUrl}/activate`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ key: enteredKey })
-                            });
-                            const data = await response.json();
-
-                            if (response.ok && data.status === 'success') {
-                                // Jeśli backend zaakceptuje klucz, zapisz go w ciasteczkach i przejdź do aplikacji
-                                this.setCookie('activationKey', enteredKey, 365); // Zapisz klucz na rok
-                                activationErrorMessage.textContent = '';
-                                activationScreen.style.display = 'none';
-                                mainAppContainer.style.display = 'block';
-                                this.initializeUI();
-                                this.bindEvents();
-                                this.loadHistory(); 
-                                this.checkBackendStatus(); 
-                            } else {
-                                activationErrorMessage.textContent = data.message || 'Nieprawidłowy klucz aktywacyjny.';
-                            }
-                        } catch (error) {
-                            console.error('Błąd weryfikacji klucza z backendem:', error);
-                            activationErrorMessage.textContent = 'Błąd połączenia z serwerem podczas weryfikacji klucza.';
-                        }
-                    });
-                }
+                this.initializeUI();
+                this.bindEvents();
+                this.loadHistory(); 
+                this.checkBackendStatus(); 
             }
 
             generateDeviceId() {
+                // Generuje losowy UUID-like string jako deviceId
                 return 'device_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now().toString(36);
             }
 
@@ -646,6 +483,7 @@
                 document.getElementById('deviceIdDisplay').textContent = this.deviceId;
                 document.getElementById('messageResult').innerHTML = '';
                 this.updateButtonsState(false); 
+                // Ustaw początkową widoczność historii na podstawie flagi isHistoryVisible
                 document.getElementById('messageHistory').style.display = this.isHistoryVisible ? 'block' : 'none';
                 document.getElementById('toggleOutputButton').textContent = this.isHistoryVisible ? 'Ukryj Output' : 'Pokaż Output';
             }
@@ -659,9 +497,9 @@
                     stopButton.disabled = !this.isSpamming;
                     stopButton.style.display = this.isSpamming ? 'block' : 'none';
                     startButton.querySelector('.button-text').style.display = this.isSpamming ? 'none' : 'inline';
-                    startButton.querySelector('.loading').style.display = 'none'; // Zawsze ukryty, chyba że faktycznie ładuje
+                    startButton.querySelector('.loading').style.display = this.isSpamming ? 'flex' : 'none';
                     stopButton.querySelector('.button-text').style.display = this.isSpamming ? 'inline' : 'none';
-                    stopButton.querySelector('.loading').style.display = 'none'; // Zawsze ukryty, chyba że faktycznie ładuje
+                    stopButton.querySelector('.loading').style.display = this.isSpamming ? 'none' : 'flex'; 
                 } else {
                     startButton.disabled = true;
                     stopButton.disabled = true;
@@ -694,6 +532,7 @@
             loadHistory() {
                 const saved = sessionStorage.getItem('ngl_message_history');
                 this.messageHistory = saved ? JSON.parse(saved) : [];
+                // Nie wyświetlaj historii od razu, tylko załaduj
             }
 
             saveHistory() {
@@ -706,18 +545,19 @@
                     this.messageHistory = this.messageHistory.slice(0, 50);
                 }
                 this.saveHistory();
-                if (this.isHistoryVisible) { 
+                if (this.isHistoryVisible) { // Tylko wyświetl, jeśli output jest widoczny
                     this.displayHistory();
                 }
             }
 
             displayHistory() {
+                const historyContainer = document.getElementById('messageHistory');
                 const historyList = document.getElementById('historyList');
                 const totalSentCounter = document.getElementById('totalSentCounter');
                 const successCounter = document.getElementById('successCounter');
                 const errorCounter = document.getElementById('errorCounter');
                 
-                historyList.innerHTML = ''; 
+                historyList.innerHTML = ''; // Wyczyść przed ponownym renderowaniem
                 
                 let totalSent = 0;
                 let totalSuccess = 0;
@@ -775,7 +615,7 @@
                 const stopButton = document.getElementById('stopButton');
                 const clearHistoryBtn = document.getElementById('clearHistory');
                 const exportHistoryBtn = document.getElementById('exportHistory');
-                const toggleOutputButton = document.getElementById('toggleOutputButton'); 
+                const toggleOutputButton = document.getElementById('toggleOutputButton'); // Nowy przycisk
 
                 messageTextarea.addEventListener('input', () => {
                     const currentLength = messageTextarea.value.length;
@@ -806,7 +646,7 @@
                     this.exportHistory();
                 });
 
-                toggleOutputButton.addEventListener('click', () => this.toggleOutputVisibility()); 
+                toggleOutputButton.addEventListener('click', () => this.toggleOutputVisibility()); // Obsługa nowego przycisku
             }
 
             toggleOutputVisibility() {
@@ -817,7 +657,7 @@
                 if (this.isHistoryVisible) {
                     historyContainer.style.display = 'block';
                     toggleButton.textContent = 'Ukryj Output';
-                    this.displayHistory(); 
+                    this.displayHistory(); // Wyświetl historię po włączeniu widoczności
                 } else {
                     historyContainer.style.display = 'none';
                     toggleButton.textContent = 'Pokaż Output';
@@ -969,7 +809,10 @@
                                 newMessagesFound = true;
                             }
                         });
-                        
+                        // Nie wywołuj displayHistory tutaj, addToHistory już to robi warunkowo
+                        // if (newMessagesFound && this.isHistoryVisible) {
+                        //     this.displayHistory(); 
+                        // }
                         document.getElementById('totalSentCounter').textContent = data.total_sent_in_session;
                         document.getElementById('successCounter').textContent = data.successful_sends;
                         document.getElementById('errorCounter').textContent = data.failed_sends;
