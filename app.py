@@ -11,10 +11,6 @@ from collections import deque # Do przechowywania ostatnich wiadomości
 app = Flask(__name__)
 CORS(app) # Dodane CORS, aby frontend mógł łączyć się z backendem
 
-# STAŁY KLUCZ AKTYWACYJNY - ZMIEŃ NA WŁASNY, UNIKALNY KLUCZ!
-# W prawdziwej aplikacji, to powinno być pobierane ze zmiennej środowiskowej (np. os.environ.get("MASTER_KEY"))
-MASTER_ACTIVATION_KEY = "YourSecretActivationKey123" 
-
 # Globalny słownik do zarządzania aktywnymi sesjami spamującymi użytkowników.
 # Klucz: username (str), Wartość: {'stop_event': Event, 'proxy_threads': list, 'history': deque, 'request_counter': int}
 active_spammers = {}
@@ -268,6 +264,7 @@ def home():
 def activate_endpoint():
     """
     Endpoint do weryfikacji klucza aktywacyjnego.
+    Teraz akceptuje każdy klucz jako poprawny.
     """
     if not request.is_json:
         return jsonify({"status": "error", "message": "Content-Type musi być application/json"}), 400
@@ -278,10 +275,8 @@ def activate_endpoint():
     if not entered_key:
         return jsonify({"status": "error", "message": "Brakuje klucza aktywacyjnego."}), 400
 
-    if entered_key == MASTER_ACTIVATION_KEY:
-        return jsonify({"status": "success", "message": "Klucz aktywacyjny jest poprawny!"}), 200
-    else:
-        return jsonify({"status": "error", "message": "Nieprawidłowy klucz aktywacyjny."}), 401 # Unauthorized
+    # Tutaj backend po prostu akceptuje każdy klucz, spełniając wymóg "każdy klucz wygenerowany pasuje"
+    return jsonify({"status": "success", "message": "Klucz aktywacyjny jest poprawny!"}), 200
 
 @app.route('/send_ngl_message', methods=['POST'])
 def send_message_endpoint():
@@ -310,7 +305,7 @@ def send_message_endpoint():
 def start_spam_endpoint():
     """
     Endpoint do rozpoczęcia ciągłego spamowania.
-    Teraz wymaga klucza aktywacyjnego do weryfikacji.
+    Klucz aktywacyjny jest sprawdzany przez frontend przy wejściu do aplikacji.
     """
     if not request.is_json:
         return jsonify({"status": "error", "message": "Content-Type musi być application/json"}), 400
@@ -321,14 +316,10 @@ def start_spam_endpoint():
     base_deviceId = data.get('deviceId') # To jest ID sesji z frontendu
     interval = float(data.get('interval', 1)) # Domyślnie 1 sekunda, konwersja na float
     raw_proxy_list_from_input = data.get('proxy_list', None) # Opcjonalna lista proxy z frontendu
-    activation_key_from_frontend = data.get('activation_key') # Odbierz klucz aktywacyjny
+    # Klucz aktywacyjny NIE jest już sprawdzany tutaj, tylko przez endpoint /activate i frontend
 
     if not username or not message or not base_deviceId:
         return jsonify({"status": "error", "message": "Brakuje nazwy użytkownika, treści wiadomości lub Device ID."}), 400
-
-    # Weryfikacja klucza aktywacyjnego przed rozpoczęciem spamowania
-    if not activation_key_from_frontend or activation_key_from_frontend != MASTER_ACTIVATION_KEY:
-        return jsonify({"status": "error", "message": "Błąd aktywacji: Nieprawidłowy lub brak klucza aktywacyjnego."}), 401
 
     with history_lock: # Zabezpiecz dostęp do active_spammers
         if username in active_spammers and active_spammers[username]['main_thread'].is_alive():
