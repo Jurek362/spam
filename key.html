@@ -108,7 +108,7 @@
         <div class="key-display" id="activationKeyDisplay"></div>
         <div>
             <button id="generateAndSendKeyButton">Wygeneruj i Wyślij Klucz do Backendu</button>
-            <button id="copyKeyButton" style="display: none;">Kopiuj Klucz</button>
+            <button id="copyKeyButton">Kopiuj Klucz</button>
         </div>
         <p class="info-message" id="message"></p>
         <a href="index.html">Przejdź do Spamerki</a>
@@ -122,27 +122,6 @@
             });
         }
 
-        function setCookie(name, value, days) {
-            let expires = "";
-            if (days) {
-                let date = new Date();
-                date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
-                expires = "; expires=" + date.toUTCString();
-            }
-            document.cookie = name + "=" + (value || "")  + expires + "; path=/; SameSite=Lax";
-        }
-
-        function getCookie(name) {
-            let nameEQ = name + "=";
-            let ca = document.cookie.split(';');
-            for(let i=0; i < ca.length; i++) {
-                let c = ca[i];
-                while (c.charAt(0)==' ') c = c.substring(1,c.length);
-                if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length,c.length);
-            }
-            return null;
-        }
-
         document.addEventListener('DOMContentLoaded', () => {
             const keyDisplay = document.getElementById('activationKeyDisplay');
             const generateAndSendKeyButton = document.getElementById('generateAndSendKeyButton');
@@ -150,14 +129,10 @@
             const messageElem = document.getElementById('message');
             const backendBaseUrl = 'https://spam-0p8u.onrender.com'; // Ten sam URL co w głównej aplikacji
 
-            let generatedKey = null; // Będzie przechowywał aktualnie wygenerowany klucz
-
-            // Generuj klucz od razu przy załadowaniu strony
-            generatedKey = generateUUID();
+            let generatedKey = generateUUID(); // Generuj klucz od razu
             keyDisplay.textContent = generatedKey;
             messageElem.textContent = "Klucz został wygenerowany. Wyślij go do backendu.";
-            copyKeyButton.style.display = 'inline-block'; // Pokaż przycisk kopiowania
-
+            
             generateAndSendKeyButton.addEventListener('click', async () => {
                 if (!generatedKey) {
                     messageElem.textContent = "Najpierw wygeneruj klucz.";
@@ -166,7 +141,7 @@
 
                 messageElem.textContent = "Wysyłanie klucza do backendu...";
                 try {
-                    const response = await fetch(`${backendBaseUrl}/set_master_key`, {
+                    const response = await fetch(`${backendBaseUrl}/register_activation_key`, { // Zmieniona nazwa endpointu
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ key: generatedKey })
@@ -174,16 +149,19 @@
                     const data = await response.json();
 
                     if (response.ok && data.status === 'success') {
-                        messageElem.textContent = data.message;
-                        // Opcjonalnie: zablokuj przycisk po pomyślnym ustawieniu, aby wymusić jednorazowość
-                        // generateAndSendKeyButton.disabled = true;
-                        // generateAndSendKeyButton.textContent = "Klucz ustawiony";
+                        messageElem.textContent = data.message + " Możesz go skopiować i użyć w spamerce.";
+                        generateAndSendKeyButton.disabled = true; // Klucz zarejestrowany
                     } else {
                         messageElem.textContent = data.message || "Wystąpił błąd podczas wysyłania klucza do backendu.";
+                        if (response.status === 409) { // Conflict
+                            messageElem.textContent += " Spróbuj użyć istniejącego klucza lub wygeneruj nowy.";
+                            generatedKey = generateUUID(); // Generuj nowy, jeśli już istnieje
+                            keyDisplay.textContent = generatedKey;
+                        }
                     }
                 } catch (error) {
                     console.error('Błąd sieci podczas wysyłania klucza:', error);
-                    messageElem.textContent = "Błąd połączenia z backendem. Spróbuj ponownie.";
+                    messageElem.textContent = "Błąd połączenia z backendem. Upewnij się, że backend jest uruchomiony. Spróbuj ponownie.";
                 }
             });
 
@@ -192,7 +170,7 @@
                 navigator.clipboard.writeText(keyToCopy).then(() => {
                     messageElem.textContent = "Klucz skopiowany do schowka!";
                     setTimeout(() => {
-                        messageElem.textContent = "Klucz został wygenerowany. Wyślij go do backendu."; // Przywróć oryginalny tekst
+                        messageElem.textContent = "Klucz został wygenerowany. Wyślij go do backendu."; 
                     }, 2000);
                 }).catch(err => {
                     console.error('Błąd kopiowania:', err);
