@@ -15,10 +15,8 @@ CORS(app) # Dodane CORS, aby frontend mógł łączyć się z backendem
 # Wzorzec do walidacji formatu UUID (zachowany, jeśli będzie potrzebny do innych celów, ale nie dla kluczy)
 UUID_PATTERN = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$', re.IGNORECASE)
 
-# Usunięto: Globalna zmienna _backend_master_key
-
 # Globalny słownik do zarządzania aktywnymi sesjami spamującymi użytkowników.
-# Klucz: username (str), Wartość: {'stop_event': Event, 'proxy_threads': list, 'history': deque, 'request_counter': int}
+# Klucz: username (str), Wartość: {'stop_event': Event, 'proxy_threads': list, 'history': deque, 'request_counter': int, 'timer': threading.Timer}
 active_spammers = {}
 # Używamy zamka do bezpiecznego dostępu do history_queue i request_counter
 history_lock = threading.Lock()
@@ -202,6 +200,7 @@ class NGLSenderBackend:
         """
         Orchestrator tworzy i zarządza wątkami spamującymi dla każdego proxy.
         Używa custom_proxies, jeśli są dostarczone i niepuste, w przeciwnym razie używa domyślnych.
+        Dodano timer do automatycznego zatrzymywania spamowania po 5 minutach.
         """
         proxies_to_use = []
         if custom_proxies:
@@ -235,8 +234,37 @@ class NGLSenderBackend:
         
         # Zapisz wątki do globalnego słownika
         with history_lock: # Zabezpiecz dostęp do active_spammers
-            # Poprawiona literówka: active_spanners -> active_spammers
-            active_spammers[username]['proxy_threads'] = proxy_threads 
+            active_spammers[username]['proxy_threads'] = proxy_threads
+
+        # Ustaw timer na 5 minut (300 sekund)
+        # Kiedy timer się wyczerpie, ustawia stop_event dla tego użytkownika
+        def stop_spam_after_timeout():
+            print(f"[{username}] Automatyczne zatrzymanie spamowania po 5 minutach.")
+            stop_event.set()
+            with history_lock:
+                if username in active_spammers:
+                    # Oznacz, że spamowanie zostało zatrzymane automatycznie
+                    active_spammers[username]['is_active'] = False
+                    # Możesz też dodać wpis do historii o automatycznym zatrzymaniu
+                    history_queue.append({
+                        "request_num": active_spammers[username]['request_counter'], # Ostatni numer żądania
+                        "timestamp": time.time(),
+                        "status": "info",
+                        "message": "System",
+                        "username": username,
+                        "deviceId": base_deviceId,
+                        "response_message": "Spamowanie automatycznie zatrzymane po 5 minutach.",
+                        "proxy_used": "N/A",
+                        "http_status": "Timeout"
+                    })
+
+        # Utwórz i uruchom timer. Zapisz go w active_spammers, aby móc go anulować.
+        spam_timer = threading.Timer(300, stop_spam_after_timeout) # 300 sekund = 5 minut
+        spam_timer.daemon = True # Pozwoli timerowi zakończyć się z głównym programem
+        spam_timer.start()
+        with history_lock:
+            active_spammers[username]['timer'] = spam_timer
+            active_spammers[username]['is_active'] = True # Oznacz jako aktywne
 
         # Główny wątek orchestratora po prostu czeka na sygnał stop
         stop_event.wait() # Czekaj, aż stop_event zostanie ustawiony
@@ -293,7 +321,6 @@ def send_message_endpoint():
 def start_spam_endpoint():
     """
     Endpoint do rozpoczęcia ciągłego spamowania.
-    Brak sprawdzania klucza aktywacyjnego w tym endpointcie.
     """
     if not request.is_json:
         return jsonify({"status": "error", "message": "Content-Type musi być application/json"}), 400
@@ -328,10 +355,12 @@ def start_spam_endpoint():
             'history': history_queue,
             'request_counter': 0, # Licznik dla wszystkich żądań w sesji
             'request_counter_lock': request_counter_lock, # Zamek dla licznika
-            'proxy_threads': [] # Lista wątków dla poszczególnych proxy
+            'proxy_threads': [], # Lista wątków dla poszczególnych proxy
+            'timer': None, # Inicjalizuj timer jako None
+            'is_active': False # Flaga do śledzenia, czy spamowanie jest aktywne
         }
     
-    return jsonify({"status": "success", "message": f"Rozpoczęto spamowanie dla użytkownika {username} przez wszystkie proxy."}), 200
+    return jsonify({"status": "success", "message": f"Rozpoczęto spamowanie dla użytkownika {username} przez wszystkie proxy. Zostanie automatycznie zatrzymane po 5 minutach."}), 200
 
 @app.route('/stop_spam', methods=['POST'])
 def stop_spam_endpoint():
@@ -348,11 +377,14 @@ def stop_spam_endpoint():
         return jsonify({"status": "error", "message": "Brakuje nazwy użytkownika."}), 400
 
     with history_lock: # Zabezpiecz dostęp do active_spammers
-        if username in active_spanners and active_spanners[username]['main_thread'].is_alive():
-            active_spanners[username]['stop_event'].set()
-            # Opcjonalnie: poczekaj na zakończenie wątku (thread.join()), ale może zablokować HTTP
-            # active_spanners[username]['main_thread'].join(timeout=5)
-            # del active_spanners[username] # Usuń po całkowitym zatrzymaniu
+        spammer_info = active_spammers.get(username)
+        if spammer_info and spammer_info['main_thread'].is_alive():
+            spammer_info['stop_event'].set()
+            if spammer_info['timer']:
+                spammer_info['timer'].cancel() # Anuluj timer, jeśli istnieje
+                print(f"[{username}] Anulowano timer automatycznego zatrzymania.")
+            spammer_info['is_active'] = False # Oznacz jako nieaktywne
+            
             return jsonify({"status": "success", "message": f"Wysłano sygnał zatrzymania spamowania dla użytkownika {username}. Proszę poczekać na zakończenie wątków."}), 200
         else:
             return jsonify({"status": "info", "message": f"Spamowanie dla użytkownika {username} nie było aktywne."}), 200
@@ -365,15 +397,9 @@ def get_spam_status(username):
     with history_lock: # Zabezpiecz dostęp do active_spammers
         spammer_info = active_spammers.get(username)
 
-        if spammer_info and spammer_info['main_thread'].is_alive():
-            # Sprawdź, czy którykolwiek z wątków proxy jest nadal aktywny
-            any_proxy_thread_active = any(t.is_alive() for t in spammer_info.get('proxy_threads', []))
+        if spammer_info: # Zmieniono warunek, aby uwzględnić zakończone sesje do pobrania historii
+            is_active = spammer_info.get('is_active', False) # Użyj flagi is_active
             
-            # W obliczu darmowego tieru Render.com, spammer_info['main_thread'].is_alive() może być wystarczające
-            # lub możemy polegać na tym, czy stop_event został ustawiony
-            is_active = not spammer_info['stop_event'].is_set()
-
-            # Oblicz statystyki z kolejki historii
             current_history = list(spammer_info['history'])
             successful_sends = sum(1 for entry in current_history if entry['status'] == 'success')
             failed_sends = sum(1 for entry in current_history if entry['status'] == 'error')
@@ -389,7 +415,7 @@ def get_spam_status(username):
         else:
             return jsonify({
                 "status": "inactive",
-                "message": f"Spamowanie dla użytkownika {username} nie jest aktywne."
+                "message": f"Spamowanie dla użytkownika {username} nie jest aktywne lub nie ma historii."
             }), 200
 
 @app.errorhandler(404)
