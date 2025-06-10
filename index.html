@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JPG Spammer & NGL Sender</title>
+    <style>
+        /* Resetowanie domyślnych stylów przeglądarki */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* Stylizacja ciała dokumentu */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Bardziej nowoczesna czcionka */
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); /* Fioletowo-niebieski gradient tła */
+            min-height: 100vh; /* Pełna wysokość widoczna na ekranie */
+            display: flex; /* Użycie flexboxa do centrowania zawartości */
+            align-items: center; /* Centrowanie w pionie */
+            justify-content: center; /* Centrowanie w poziomie */
+            padding: 20px; /* Wewnętrzne odstępy */
+        }
+
+        /* Stylizacja głównego kontenera aplikacji */
+        .container {
+            background: rgba(255, 255, 255, 0.95); /* Półprzezroczyste białe tło */
+            backdrop-filter: blur(10px); /* Efekt rozmycia tła */
+            border-radius: 20px; /* Zaokrąglone rogi */
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1); /* Delikatny cień */
+            padding: 40px; /* Wewnętrzne odstępy */
+            width: 100%; /* Pełna szerokość na małych ekranach */
+            max-width: 500px; /* Maksymalna szerokość kontenera */
+            border: 1px solid rgba(255, 255, 255, 0.2); /* Delikatna ramka */
+        }
+
+        /* Stylizacja nagłówka aplikacji */
+        .header {
+            text-align: center; /* Centrowanie tekstu */
+            margin-bottom: 30px; /* Dolny margines */
+        }
+
+        .header h1 {
+            color: #333; /* Ciemnoszary kolor tekstu */
+            font-size: 2.2rem; /* Rozmiar czcionki */
+            font-weight: 700; /* Pogrubienie czcionki */
+            margin-bottom: 10px; /* Dolny margines */
+            background: linear-gradient(135deg, #667eea, #764ba2); /* Gradient dla tekstu */
+            -webkit-background-clip: text; /* Przycięcie tła do kształtu tekstu (dla Webkit) */
+            -webkit-text-fill-color: transparent; /* Ustawienie koloru wypełnienia tekstu na przezroczysty (dla Webkit) */
+            background-clip: text; /* Przycięcie tła do kształtu tekstu */
+        }
+
+        .header p {
+            color: #666; /* Szary kolor tekstu */
+            font-size: 1.1rem; /* Rozmiar czcionki */
+        }
+
+        /* Stylizacja grupy formularza (label + input/textarea) */
+        .form-group {
+            margin-bottom: 25px; /* Dolny margines */
+        }
+
+        .form-group label {
+            display: block; /* Wyświetlanie jako blok (nowa linia) */
+            margin-bottom: 8px; /* Dolny margines */
+            color: #333; /* Ciemnoszary kolor tekstu */
+            font-weight: 600; /* Pogrubienie czcionki */
+            font-size: 0.95rem; /* Rozmiar czcionki */
+        }
+
+        /* Stylizacja pól input i textarea */
+        .form-group input,
+        .form-group textarea {
+            width: 100%; /* Pełna szerokość */
+            padding: 15px; /* Wewnętrzne odstępy */
+            border: 2px solid #e1e5e9; /* Cienka szara ramka */
+            border-radius: 12px; /* Zaokrąglone rogi */
+            font-size: 1rem; /* Rozmiar czcionki */
+            transition: all 0.3s ease; /* Płynne przejścia */
+            background: rgba(255, 255, 255, 0.8); /* Półprzezroczyste białe tło */
+        }
+
+        /* Efekt focusu dla pól input i textarea */
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none; /* Usunięcie domyślnego obramowania focusu */
+            border-color: #667eea; /* Kolor ramki na niebiesko-fioletowy */
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); /* Delikatny cień focusu */
+            background: rgba(255, 255, 255, 1); /* Pełne białe tło po focusie */
+        }
+
+        /* Specyficzne style dla textarea */
+        textarea {
+            resize: vertical; /* Pozwól na zmianę rozmiaru tylko w pionie */
+            min-height: 120px; /* Minimalna wysokość */
+            font-family: inherit; /* Dziedzicz czcionkę z body */
+        }
+
+        /* Stylizacja licznika znaków */
+        .char-counter {
+            text-align: right; /* Tekst wyrównany do prawej */
+            font-size: 0.85rem; /* Rozmiar czcionki */
+            color: #888; /* Szary kolor tekstu */
+            margin-top: 5px; /* Górny margines */
+        }
+
+        /* Stylizacja przycisków akcji */
+        .action-buttons {
+            display: flex;
+            gap: 15px; /* Odstęp między przyciskami */
+            margin-top: 25px;
+        }
+
+        .send-button, .stop-button {
+            flex: 1; /* Równa szerokość dla przycisków */
+            padding: 16px; /* Wewnętrzne odstępy */
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); /* Gradient tła */
+            color: white; /* Biały kolor tekstu */
+            border: none; /* Brak ramki */
+            border-radius: 12px; /* Zaokrąglone rogi */
+            font-size: 1.1rem; /* Rozmiar czcionki */
+            font-weight: 600; /* Pogrubienie czcionki */
+            cursor: pointer; /* Kursor wskazujący na klikalność */
+            transition: all 0.3s ease; /* Płynne przejścia */
+            position: relative; /* Potrzebne dla animacji ładowania */
+            overflow: hidden; /* Ukryj przepełnienie */
+        }
+
+        .stop-button {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); /* Czerwony gradient dla stop */
+            display: none; /* Domyślnie ukryty */
+        }
+
+        .send-button:hover, .stop-button:hover {
+            transform: translateY(-2px); /* Delikatne przesunięcie w górę przy najechaniu myszą */
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3); /* Większy cień przy najechaniu */
+        }
+        .stop-button:hover {
+            box-shadow: 0 10px 25px rgba(231, 76, 60, 0.3);
+        }
+
+        .send-button:active, .stop-button:active {
+            transform: translateY(0); /* Powrót do pierwotnej pozycji przy kliknięciu */
+        }
+
+        .send-button:disabled, .stop-button:disabled {
+            opacity: 0.6; /* Zmniejszona przezroczystość gdy wyłączony */
+            cursor: not-allowed; /* Kursor wskazujący na brak możliwości kliknięcia */
+            transform: none; /* Brak transformacji gdy wyłączony */
+        }
+
+        /* Stylizacja stanu ładowania przycisku */
+        .loading {
+            display: none; /* Domyślnie ukryty */
+            align-items: center; /* Wyśrodkowanie elementów w pionie */
+            justify-content: center; /* Wyśrodkowanie elementów w poziomie */
+            gap: 10px; /* Odstęp między elementami */
+        }
+
+        .spinner {
+            width: 20px; /* Szerokość spinera */
+            height: 20px; /* Wysokość spinera */
+            border: 2px solid rgba(255, 255, 255, 0.3); /* Częściowo przezroczysta ramka */
+            border-top: 2px solid white; /* Górna część ramki biała */
+            border-radius: 50%; /* Kształt koła */
+            animation: spin 1s linear infinite; /* Animacja obracania */
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Stylizacja komunikatów wynikowych */
+        .message {
+            padding: 15px; /* Wewnętrzne odstępy */
+            border-radius: 12px; /* Zaokrąglone rogi */
+            margin-top: 20px; /* Górny margines */
+            font-weight: 500; /* Lekkie pogrubienie */
+            animation: slideIn 0.3s ease-out; /* Animacja pojawiania się */
+        }
+
+        .message.success {
+            background: linear-gradient(135deg, #d4edda, #c3e6cb); /* Zielony gradient dla sukcesu */
+            color: #155724; /* Ciemnozielony kolor tekstu */
+            border: 1px solid #c3e6cb; /* Zielona ramka */
+        }
+
+        .message.error {
+            background: linear-gradient(135deg, #f8d7da, #f5c6cb); /* Czerwony gradient dla błędu */
+            color: #721c24; /* Ciemnoczerwony kolor tekstu */
+            border: 1px solid #f5c6cb; /* Czerwona ramka */
+        }
+
+        .message.info {
+            background: linear-gradient(135deg, #d1ecf1, #bee5eb);
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Stylizacja informacji o Device ID */
+        .device-id-info {
+            background: rgba(102, 126, 234, 0.1); /* Półprzezroczyste tło w kolorze purpury */
+            border: 1px solid rgba(102, 126, 234, 0.2); /* Delikatna ramka */
+            border-radius: 8px; /* Zaokrąglone rogi */
+            padding: 12px; /* Wewnętrzne odstępy */
+            margin-top: 10px; /* Górny margines */
+            font-size: 0.85rem; /* Rozmiar czcionki */
+            color: #555; /* Szary kolor tekstu */
+        }
+
+        /* Media queries dla responsywności */
+        @media (max-width: 480px) {
+            .container {
+                padding: 30px 20px; /* Mniejsze odstępy na małych ekranach */
+                margin: 10px; /* Margines na małych ekranach */
+            }
+
+            .header h1 {
+                font-size: 1.8rem; /* Mniejszy rozmiar czcionki nagłówka */
+            }
+
+            .header p {
+                font-size: 1rem; /* Mniejszy rozmiar czcionki paragrafu */
+            }
+
+            .action-buttons {
+                flex-direction: column; /* Przyciski w kolumnie na małych ekranach */
+            }
+        }
+
+        /* Stylizacja historii wiadomości */
+        .message-history {
+            margin-top: 30px; /* Górny margines */
+            padding: 25px; /* Wewnętrzne odstępy */
+            background: rgba(255, 255, 255, 0.9); /* Półprzezroczyste białe tło */
+            border-radius: 15px; /* Zaokrąglone rogi */
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1); /* Delikatny cień */
+            /* Zmiana tutaj: Domyślnie ukryte, JavaScript będzie nim sterował */
+            display: none; 
+        }
+
+        .message-history h3 {
+            color: #333; /* Ciemnoszary kolor tekstu */
+            margin-bottom: 20px; /* Dolny margines */
+            font-size: 1.3rem; /* Rozmiar czcionki */
+            text-align: center; /* Centrowanie tekstu */
+        }
+
+        .history-controls {
+            display: flex; /* Użycie flexboxa */
+            gap: 10px; /* Odstęp między przyciskami */
+            justify-content: center; /* Centrowanie przycisków */
+            margin-bottom: 20px; /* Dolny margines */
+        }
+
+        .clear-button, .export-button, .toggle-output-button { /* Dodano toggle-output-button */
+            padding: 8px 16px; /* Wewnętrzne odstępy */
+            border: none; /* Brak ramki */
+            border-radius: 8px; /* Zaokrąglone rogi */
+            font-size: 0.9rem; /* Rozmiar czcionki */
+            cursor: pointer; /* Kursor wskazujący na klikalność */
+            transition: all 0.3s ease; /* Płynne przejścia */
+        }
+
+        .clear-button {
+            background: #e74c3c; /* Czerwone tło */
+            color: white; /* Biały tekst */
+        }
+
+        .clear-button:hover {
+            background: #c0392b; /* Ciemniejszy czerwony przy najechaniu */
+        }
+
+        .export-button {
+            background: #3498db; /* Niebieskie tło */
+            color: white; /* Biały tekst */
+        }
+
+        .export-button:hover {
+            background: #2980b9; /* Ciemniejszy niebieski przy najechaniu */
+        }
+
+        .toggle-output-button { /* Styl dla nowego przycisku Pokaż Output */
+            background: #28a745; /* Zielone tło */
+            color: white; /* Biały tekst */
+            width: 100%; /* Pełna szerokość */
+            margin-top: 20px; /* Górny margines */
+            padding: 12px; /* Większe odstępy */
+        }
+
+        .toggle-output-button:hover {
+            background: #218838; /* Ciemniejszy zielony */
+        }
+
+        .history-item {
+            background: rgba(255, 255, 255, 0.8); /* Półprzezroczyste białe tło */
+            border: 1px solid #e1e5e9; /* Cienka ramka */
+            border-radius: 10px; /* Zaokrąglone rogi */
+            padding: 15px; /* Wewnętrzne odstępy */
+            margin-bottom: 15px; /* Dolny margines */
+            animation: slideIn 0.3s ease-out; /* Animacja pojawiania się */
+        }
+
+        .history-item.success {
+            border-left: 4px solid #27ae60; /* Zielona lewa ramka dla sukcesu */
+        }
+
+        .history-item.error {
+            border-left: 4px solid #e74c3c; /* Czerwona lewa ramka dla błędu */
+        }
+
+        .history-header {
+            display: flex; /* Użycie flexboxa */
+            justify-content: space-between; /* Rozłożenie elementów na skrajach */
+            align-items: center; /* Wyśrodkowanie w pionie */
+            margin-bottom: 10px; /* Dolny margines */
+            font-weight: 600; /* Pogrubienie czcionki */
+        }
+
+        .history-status {
+            padding: 4px 8px; /* Wewnętrzne odstępy */
+            border-radius: 12px; /* Zaokrąglone rogi */
+            font-size: 0.8rem; /* Rozmiar czcionki */
+            font-weight: 500; /* Lekkie pogrubienie */
+        }
+
+        .history-status.success {
+            background: #d4edda; /* Zielone tło */
+            color: #155724; /* Ciemnozielony tekst */
+        }
+
+        .history-status.error {
+            background: #f8d7da; /* Czerwone tło */
+            color: #721c24; /* Ciemnoczerwony tekst */
+        }
+
+        .history-details {
+            display: grid; /* Użycie siatki CSS */
+            grid-template-columns: 1fr 1fr; /* Dwie kolumny o równej szerokości */
+            gap: 10px; /* Odstęp między elementami siatki */
+            margin-bottom: 10px; /* Dolny margines */
+            font-size: 0.9rem; /* Rozmiar czcionki */
+        }
+
+        .history-detail {
+            display: flex; /* Użycie flexboxa */
+            align-items: center; /* Wyśrodkowanie w pionie */
+            gap: 5px; /* Odstęp między elementami */
+        }
+
+        .history-detail strong {
+            color: #555; /* Szary kolor tekstu */
+        }
+
+        .history-message {
+            background: rgba(102, 126, 234, 0.1); /* Półprzezroczyste tło w kolorze purpury */
+            padding: 10px; /* Wewnętrzne odstępy */
+            border-radius: 8px; /* Zaokrąglone rogi */
+            font-style: italic; /* Kursywa */
+            margin-top: 10px; /* Górny margines */
+        }
+
+        .proxy-info {
+            color: #667eea; /* Kolor proxy info */
+            font-family: monospace; /* Czcionka monospace */
+            font-size: 0.85rem; /* Rozmiar czcionki */
+        }
+
+        /* Media queries dla responsywności historii */
+        @media (max-width: 600px) {
+            .history-details {
+                grid-template-columns: 1fr; /* Jedna kolumna na małych ekranach */
+            }
+            
+            .history-controls {
+                flex-direction: column; /* Ułożenie przycisków w kolumnie */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>JPG Spammer</h1>
+            <p>Wyślij anonimową wiadomość przez NGL.link</p>
+        </div>
+
+        <form id="nglForm">
+            <div class="form-group">
+                <label for="username">Nazwa użytkownika NGL:</label>
+                <input type="text" id="username" name="username" placeholder="np. twojnick" required>
+            </div>
+
+            <div class="form-group">
+                <label for="message">Treść wiadomości:</label>
+                <textarea id="message" name="message" placeholder="Wpisz tutaj swoją wiadomość..." required maxlength="500"></textarea>
+                <div class="char-counter">
+                    <span id="charCount">0</span>/500 znaków
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="intervalInput">Opóźnienie (sekundy na proxy):</label>
+                <input type="number" id="intervalInput" name="interval" value="1" min="0.1" step="0.1">
+                <small>Czas oczekiwania pomiędzy wysłaniem wiadomości przez to samo proxy.</small>
+            </div>
+
+            <div class="form-group">
+                <label for="customProxiesInput">Wklej własne proxy (ip:port:uzytkownik:haslo, jedna linia na proxy):</label>
+                <textarea id="customProxiesInput" name="custom_proxies" rows="5" placeholder="np. 123.123.123.123:8080:user:pass"></textarea>
+            </div>
+
+            <div class="action-buttons">
+                <button type="button" class="send-button" id="startButton">
+                    <span class="button-text">Rozpocznij Spamowanie</span>
+                    <div class="loading" id="startLoading">
+                        <div class="spinner"></div>
+                        <span>Startowanie...</span>
+                    </div>
+                </button>
+                <button type="button" class="stop-button" id="stopButton">
+                    <span class="button-text">Zatrzymaj Spamowanie</span>
+                    <div class="loading" id="stopLoading">
+                        <div class="spinner"></div>
+                        <span>Zatrzymywanie...</span>
+                    </div>
+                </button>
+            </div>
+            <button type="button" id="toggleOutputButton" class="toggle-output-button">Pokaż Output</button>
+        </form>
+
+        <div class="device-id-info">
+            <strong>Device ID:</strong> <span id="deviceIdDisplay"></span>
+            <br><small>Automatycznie generowany identyfikator urządzenia dla sesji</small>
+        </div>
+
+        <div id="messageResult"></div>
+
+        <div class="message-history" id="messageHistory"> <h3>📋 Historia wiadomości (<span id="totalSentCounter">0</span> wysłanych, <span id="successCounter">0</span> sukcesów, <span id="errorCounter">0</span> błędów)</h3>
+            <div class="history-controls">
+                <button type="button" id="clearHistory" class="clear-button">🗑️ Wyczyść historię</button>
+                <button type="button" id="exportHistory" class="export-button">📥 Eksportuj</button>
+            </div>
+            <div class="history-list" id="historyList"></div>
+        </div>
+    </div>
+
+    <script>
+        class NGLSenderFrontend {
+            constructor() {
+                this.deviceId = this.generateDeviceId();
+                this.backendBaseUrl = 'https://spam-0p8u.onrender.com'; // Baza URL backendu
+                this.pollingInterval = null; // Zmienna do przechowywania interwału pollingu
+                this.isSpamming = false; // Flaga stanu spamowania
+                this.isHistoryVisible = false; // Nowa flaga do kontroli widoczności historii
+                
+                this.initializeUI();
+                this.bindEvents();
+                this.loadHistory(); 
+                this.checkBackendStatus(); 
+            }
+
+            generateDeviceId() {
+                // Generuje losowy UUID-like string jako deviceId
+                return 'device_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now().toString(36);
+            }
+
+            initializeUI() {
+                document.getElementById('deviceIdDisplay').textContent = this.deviceId;
+                document.getElementById('messageResult').innerHTML = '';
+                this.updateButtonsState(false); 
+                // Ustaw początkową widoczność historii na podstawie flagi isHistoryVisible
+                document.getElementById('messageHistory').style.display = this.isHistoryVisible ? 'block' : 'none';
+                document.getElementById('toggleOutputButton').textContent = this.isHistoryVisible ? 'Ukryj Output' : 'Pokaż Output';
+            }
+
+            updateButtonsState(backendReady = false) {
+                const startButton = document.getElementById('startButton');
+                const stopButton = document.getElementById('stopButton');
+                
+                if (backendReady) {
+                    startButton.disabled = this.isSpamming;
+                    stopButton.disabled = !this.isSpamming;
+                    stopButton.style.display = this.isSpamming ? 'block' : 'none';
+                    startButton.querySelector('.button-text').style.display = this.isSpamming ? 'none' : 'inline';
+                    startButton.querySelector('.loading').style.display = this.isSpamming ? 'flex' : 'none';
+                    stopButton.querySelector('.button-text').style.display = this.isSpamming ? 'inline' : 'none';
+                    stopButton.querySelector('.loading').style.display = this.isSpamming ? 'none' : 'flex'; 
+                } else {
+                    startButton.disabled = true;
+                    stopButton.disabled = true;
+                    startButton.querySelector('.button-text').style.display = 'inline';
+                    startButton.querySelector('.loading').style.display = 'none';
+                    stopButton.style.display = 'none'; 
+                }
+            }
+
+            async checkBackendStatus() {
+                try {
+                    const response = await fetch(`${this.backendBaseUrl}/`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.status === 'online') {
+                            this.showMessage('Backend jest online!', 'success');
+                            this.updateButtonsState(true); 
+                            this.pollSpamStatus(); 
+                            return; 
+                        }
+                    }
+                    this.showMessage('Backend offline lub niedostępny. Spróbuj później.', 'error');
+                } catch (error) {
+                    console.error('Błąd sprawdzania statusu backendu:', error);
+                    this.showMessage('Błąd połączenia z backendem. Spróbuj później.', 'error');
+                }
+                this.updateButtonsState(false); 
+            }
+
+            loadHistory() {
+                const saved = sessionStorage.getItem('ngl_message_history');
+                this.messageHistory = saved ? JSON.parse(saved) : [];
+                // Nie wyświetlaj historii od razu, tylko załaduj
+            }
+
+            saveHistory() {
+                sessionStorage.setItem('ngl_message_history', JSON.stringify(this.messageHistory));
+            }
+
+            addToHistory(entry) {
+                this.messageHistory.unshift(entry); 
+                if (this.messageHistory.length > 50) { 
+                    this.messageHistory = this.messageHistory.slice(0, 50);
+                }
+                this.saveHistory();
+                if (this.isHistoryVisible) { // Tylko wyświetl, jeśli output jest widoczny
+                    this.displayHistory();
+                }
+            }
+
+            displayHistory() {
+                const historyContainer = document.getElementById('messageHistory');
+                const historyList = document.getElementById('historyList');
+                const totalSentCounter = document.getElementById('totalSentCounter');
+                const successCounter = document.getElementById('successCounter');
+                const errorCounter = document.getElementById('errorCounter');
+                
+                historyList.innerHTML = ''; // Wyczyść przed ponownym renderowaniem
+                
+                let totalSent = 0;
+                let totalSuccess = 0;
+                let totalErrors = 0;
+
+                this.messageHistory.forEach((entry) => { 
+                    totalSent++;
+                    if (entry.status === 'success') {
+                        totalSuccess++;
+                    } else {
+                        totalErrors++;
+                    }
+                    const historyItem = this.createHistoryItem(entry);
+                    historyList.appendChild(historyItem);
+                });
+
+                totalSentCounter.textContent = totalSent;
+                successCounter.textContent = totalSuccess;
+                errorCounter.textContent = totalErrors;
+            }
+
+            createHistoryItem(entry) {
+                const item = document.createElement('div');
+                item.className = `history-item ${entry.status}`;
+                
+                const timestamp = new Date(entry.timestamp * 1000).toLocaleString('pl-PL');
+                
+                const prefix = entry.status === 'success' ? '[+]' : '[-]';
+                const statusText = entry.response_message || (entry.status === 'success' ? 'Wysłano!' : 'Błąd!'); 
+                const proxyInfo = entry.proxy_used && entry.proxy_used !== 'Bez proxy' ? `Proxy: ${entry.proxy_used}` : 'Bez proxy';
+                const requestNum = entry.request_num ? `#${entry.request_num}` : '';
+                
+                item.innerHTML = `
+                    <div class="history-item-line">
+                        <span style="font-weight: bold; color: ${entry.status === 'success' ? '#27ae60' : '#e74c3c'};">${prefix}</span> 
+                        Request ${requestNum} | ${statusText} | ${proxyInfo}
+                    </div>
+                    <div style="font-size: 0.85rem; color: #777; margin-top: 5px;">
+                        <span style="font-style: italic;">"${entry.message}"</span>
+                        <br>
+                        <small>${timestamp}</small>
+                        <small> (Device ID: ${entry.deviceId.substring(0, 8)}...)</small>
+                    </div>
+                    ${entry.details ? `<div style="margin-top: 5px; font-size: 0.8rem; color: #a00;">Detale: ${entry.details}</div>` : ''}
+                `;
+                
+                return item;
+            }
+
+            bindEvents() {
+                const form = document.getElementById('nglForm');
+                const messageTextarea = document.getElementById('message');
+                const charCountElement = document.getElementById('charCount');
+                const startButton = document.getElementById('startButton');
+                const stopButton = document.getElementById('stopButton');
+                const clearHistoryBtn = document.getElementById('clearHistory');
+                const exportHistoryBtn = document.getElementById('exportHistory');
+                const toggleOutputButton = document.getElementById('toggleOutputButton'); // Nowy przycisk
+
+                messageTextarea.addEventListener('input', () => {
+                    const currentLength = messageTextarea.value.length;
+                    charCountElement.textContent = currentLength;
+                    
+                    if (currentLength > 450) {
+                        charCountElement.style.color = '#e74c3c';
+                    } else if (currentLength > 400) {
+                        charCountElement.style.color = '#f39c12';
+                    } else {
+                        charCountElement.style.color = '#888';
+                    }
+                });
+
+                startButton.addEventListener('click', () => this.startSpamming());
+                stopButton.addEventListener('click', () => this.stopSpamming());
+
+                clearHistoryBtn.addEventListener('click', () => {
+                    if (confirm('Czy na pewno chcesz wyczyścić całą historię wiadomości?')) {
+                        this.messageHistory = [];
+                        this.saveHistory();
+                        this.displayHistory();
+                        this.showMessage('Historia została wyczyszczona', 'success');
+                    }
+                });
+
+                exportHistoryBtn.addEventListener('click', () => {
+                    this.exportHistory();
+                });
+
+                toggleOutputButton.addEventListener('click', () => this.toggleOutputVisibility()); // Obsługa nowego przycisku
+            }
+
+            toggleOutputVisibility() {
+                this.isHistoryVisible = !this.isHistoryVisible;
+                const historyContainer = document.getElementById('messageHistory');
+                const toggleButton = document.getElementById('toggleOutputButton');
+                
+                if (this.isHistoryVisible) {
+                    historyContainer.style.display = 'block';
+                    toggleButton.textContent = 'Ukryj Output';
+                    this.displayHistory(); // Wyświetl historię po włączeniu widoczności
+                } else {
+                    historyContainer.style.display = 'none';
+                    toggleButton.textContent = 'Pokaż Output';
+                }
+            }
+
+
+            async startSpamming() {
+                const username = document.getElementById('username').value.trim();
+                const message = document.getElementById('message').value.trim();
+                const interval = parseFloat(document.getElementById('intervalInput').value); 
+                const customProxiesInput = document.getElementById('customProxiesInput').value.trim(); 
+                const startButton = document.getElementById('startButton');
+                const stopButton = document.getElementById('stopButton');
+                const resultDiv = document.getElementById('messageResult');
+
+                if (!username || !message) {
+                    this.showMessage('Proszę wypełnić nazwę użytkownika i treść wiadomości!', 'error');
+                    return;
+                }
+                if (message.length > 500) {
+                    this.showMessage('Wiadomość jest za długa! Maksymalnie 500 znaków.', 'error');
+                    return;
+                }
+                if (isNaN(interval) || interval <= 0) {
+                    this.showMessage('Opóźnienie musi być liczbą większą od zera!', 'error');
+                    return;
+                }
+
+                let proxyListToSend = null;
+                if (customProxiesInput) {
+                    proxyListToSend = customProxiesInput.split('\n').map(line => line.trim()).filter(line => line !== '');
+                    if (proxyListToSend.length === 0) {
+                        this.showMessage('Własna lista proxy jest pusta po wklejeniu. Użyj domyślnych lub wprowadź poprawne proxy.', 'error');
+                        return;
+                    }
+                }
+
+                this.showMessage('Rozpoczynanie spamowania...', 'info');
+                startButton.disabled = true;
+                startButton.querySelector('.button-text').style.display = 'none';
+                startButton.querySelector('.loading').style.display = 'flex';
+                stopButton.disabled = true; 
+
+                try {
+                    const response = await fetch(`${this.backendBaseUrl}/start_spam`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            username: username,
+                            message: message,
+                            deviceId: this.deviceId,
+                            interval: interval, 
+                            proxy_list: proxyListToSend 
+                        })
+                    });
+                    const data = await response.json();
+
+                    if (response.ok && data.status === 'success') {
+                        this.showMessage(data.message, 'success');
+                        this.isSpamming = true;
+                        this.updateButtonsState(true);
+                        if (this.pollingInterval) clearInterval(this.pollingInterval); 
+                        this.pollingInterval = setInterval(() => this.pollSpamStatus(), 2000); 
+                    } else {
+                        this.showMessage(data.message || 'Błąd podczas próby rozpoczęcia spamowania.', 'error');
+                        this.isSpamming = false;
+                        this.updateButtonsState(true);
+                    }
+                } catch (error) {
+                    console.error('Błąd sieci podczas startowania spamowania:', error);
+                    this.showMessage('Błąd połączenia z backendem podczas startowania. Spróbuj ponownie.', 'error');
+                    this.isSpamming = false;
+                    this.updateButtonsState(true);
+                }
+            }
+
+            async stopSpamming() {
+                const username = document.getElementById('username').value.trim();
+                const startButton = document.getElementById('startButton');
+                const stopButton = document.getElementById('stopButton');
+                
+                if (!username) {
+                    this.showMessage('Proszę podać nazwę użytkownika, aby zatrzymać spamowanie!', 'error');
+                    return;
+                }
+
+                this.showMessage('Zatrzymywanie spamowania...', 'info');
+                startButton.disabled = true; 
+                stopButton.disabled = true;
+                stopButton.querySelector('.button-text').style.display = 'none';
+                stopButton.querySelector('.loading').style.display = 'flex';
+
+                try {
+                    const response = await fetch(`${this.backendBaseUrl}/stop_spam`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: username })
+                    });
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        this.showMessage(data.message, 'success');
+                        this.isSpamming = false;
+                        this.updateButtonsState(true);
+                        if (this.pollingInterval) clearInterval(this.pollingInterval); 
+                        this.pollSpamStatus(); 
+                    } else {
+                        this.showMessage(data.message || 'Błąd podczas próby zatrzymania spamowania.', 'error');
+                        this.updateButtonsState(true);
+                    }
+                } catch (error) {
+                    console.error('Błąd sieci podczas zatrzymywania spamowania:', error);
+                    this.showMessage('Błąd połączenia z backendem podczas zatrzymywania. Spróbuj ponownie.', 'error');
+                    this.updateButtonsState(true);
+                }
+            }
+
+            async pollSpamStatus() {
+                const username = document.getElementById('username').value.trim();
+                if (!username) {
+                    if (this.pollingInterval) clearInterval(this.pollingInterval); 
+                    this.isSpamming = false;
+                    this.updateButtonsState(true);
+                    return;
+                }
+                
+                try {
+                    const response = await fetch(`${this.backendBaseUrl}/spam_status/${username}`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const data = await response.json();
+
+                    this.isSpamming = (data.status === 'active');
+                    this.updateButtonsState(true);
+
+                    if (data.status === 'active' || (data.status === 'inactive' && data.last_messages && data.last_messages.length > 0)) {
+                        let newMessagesFound = false;
+                        const sortedBackendMessages = data.last_messages.sort((a, b) => b.request_num - a.request_num);
+                        
+                        sortedBackendMessages.forEach(backendEntry => {
+                            const exists = this.messageHistory.some(
+                                frontendEntry => frontendEntry.timestamp === backendEntry.timestamp &&
+                                                 frontendEntry.request_num === backendEntry.request_num
+                            );
+                            if (!exists) {
+                                this.addToHistory(backendEntry);
+                                newMessagesFound = true;
+                            }
+                        });
+                        // Nie wywołuj displayHistory tutaj, addToHistory już to robi warunkowo
+                        // if (newMessagesFound && this.isHistoryVisible) {
+                        //     this.displayHistory(); 
+                        // }
+                        document.getElementById('totalSentCounter').textContent = data.total_sent_in_session;
+                        document.getElementById('successCounter').textContent = data.successful_sends;
+                        document.getElementById('errorCounter').textContent = data.failed_sends;
+                    } 
+                    
+                    if (data.status === 'inactive' && this.pollingInterval) {
+                        clearInterval(this.pollingInterval);
+                        this.pollingInterval = null;
+                        this.isSpamming = false;
+                        this.updateButtonsState(true);
+                        this.showMessage('Spamowanie zakończone lub nieaktywne.', 'info');
+                    }
+
+                } catch (error) {
+                    console.error('Błąd podczas odpytywania statusu spamowania:', error);
+                    if (this.pollingInterval) clearInterval(this.pollingInterval);
+                    this.pollingInterval = null;
+                    this.isSpamming = false;
+                    this.updateButtonsState(true);
+                    this.showMessage('Błąd połączenia z backendem podczas odpytywania statusu. Spamowanie mogło zostać zatrzymane.', 'error');
+                }
+            }
+
+            showMessage(text, type) {
+                const resultDiv = document.getElementById('messageResult');
+                resultDiv.innerHTML = `<div class="message ${type}">${text}</div>`;
+                
+                setTimeout(() => {
+                    if (resultDiv.innerHTML.includes(text)) {
+                        resultDiv.innerHTML = '';
+                    }
+                }, 5000);
+            }
+
+            exportHistory() {
+                if (this.messageHistory.length === 0) {
+                    this.showMessage('Brak historii do eksportu', 'error');
+                    return;
+                }
+
+                const exportData = {
+                    exported_at: new Date().toISOString(),
+                    total_messages: this.messageHistory.length,
+                    successful_messages: this.messageHistory.filter(m => m.status === 'success').length,
+                    failed_messages: this.messageHistory.filter(m => m.status === 'error').length,
+                    messages: this.messageHistory.map(entry => ({
+                        ...entry,
+                        timestamp: new Date(entry.timestamp * 1000).toISOString() 
+                    }))
+                };
+
+                const dataStr = JSON.stringify(exportData, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(dataBlob);
+                link.download = `ngl_history_${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                this.showMessage('Historia została wyeksportowana', 'success');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            new NGLSenderFrontend();
+        });
+    </script>
+</body>
+</html>
