@@ -9,16 +9,41 @@ import time
 from collections import deque # Do przechowywania ostatnich wiadomości
 import re # Importujemy moduł do wyrażeń regularnych
 
+# Firebase imports
+import firebase_admin
+from firebase_admin import credentials, firestore
+from datetime import datetime, timedelta
+
 app = Flask(__name__)
 CORS(app) # Dodane CORS, aby frontend mógł łączyć się z backendem
 
 # Wzorzec do walidacji formatu UUID
 UUID_PATTERN = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$', re.IGNORECASE)
 
-# Globalna zmienna do przechowywania klucza aktywacyjnego ustawionego z key.html
-# UWAGA: Klucz ten będzie resetowany po każdym restarcie serwera na Render.com.
-# W produkcyjnej aplikacji wymagane jest użycie bazy danych (np. Redis, Firestore) do trwałego przechowywania.
-_backend_master_key = None
+# Inicjalizacja Firebase Admin SDK
+firestore_db = None
+try:
+    # Spróbuj zainicjować Firebase Admin SDK.
+    # W środowiskach Google Cloud (App Engine, Cloud Run) często działa automatycznie.
+    # W innych środowiskach (np. Render.com), upewnij się, że zmienna środowiskowa
+    # GOOGLE_APPLICATION_CREDENTIALS wskazuje na plik klucza konta serwisowego.
+    if not firebase_admin._apps: # Uniknij ponownej inicjalizacji w testach
+        firebase_admin.initialize_app()
+    firestore_db = firestore.client()
+    print("Firebase Admin SDK zainicjowane pomyślnie.")
+except Exception as e:
+    print(f"Błąd inicjalizacji Firebase Admin SDK: {e}. Funkcje Firestore mogą nie działać.")
+    firestore_db = None # Ustaw na None, jeśli inicjalizacja się nie powiedzie
+
+# app_id pobrane ze zmiennej środowiskowej, która powinna być ustawiona podczas wdrożenia.
+# Jest to konieczne do budowania ścieżki kolekcji w Firestore.
+app_id = os.environ.get('APP_ID', 'default-canvas-app-id')
+
+# Definicja ścieżki kolekcji Firestore dla kluczy aktywacyjnych
+# Zgodnie z zasadami: /artifacts/{appId}/public/data/{your_collection_name}
+KEYS_COLLECTION_PATH = f"artifacts/{app_id}/public/data/activation_keys"
+print(f"Ścieżka kolekcji kluczy Firestore: {KEYS_COLLECTION_PATH}")
+
 
 # Globalny słownik do zarządzania aktywnymi sesjami spamującymi użytkowników.
 # Klucz: username (str), Wartość: {'stop_event': Event, 'proxy_threads': list, 'history': deque, 'request_counter': int}
@@ -46,7 +71,7 @@ class NGLSenderBackend:
         else:
             try:
                 with open("proxies.txt", "r") as f:
-                    proxy_lines = [line.strip() for line in f.readlines() if line.strip()]
+                    proxy_lines = [line.strip() for f.readlines() if line.strip()]
             except FileNotFoundError:
                 print("Plik 'proxies.txt' nie znaleziony i zmienna środowiskowa PROXY_LIST nie ustawiona. Wysyłanie bez proxy.")
                 return None
@@ -238,7 +263,7 @@ class NGLSenderBackend:
         
         # Zapisz wątki do globalnego słownika
         with history_lock: # Zabezpiecz dostęp do active_spammers
-            active_spanners[username]['proxy_threads'] = proxy_threads
+            active_spammers[username]['proxy_threads'] = proxy_threads
 
         # Główny wątek orchestratora po prostu czeka na sygnał stop
         stop_event.wait() # Czekaj, aż stop_event zostanie ustawiony
@@ -265,18 +290,19 @@ def home():
             "start_spam": "/start_spam [POST]",
             "stop_spam": "/stop_spam [POST]",
             "spam_status": "/spam_status/<username> [GET]",
-            "set_master_key": "/set_master_key [POST]", # Nowy endpoint
+            "register_activation_key": "/register_activation_key [POST]", # Zmieniona nazwa
             "activate": "/activate [POST]" 
         }
     })
 
-@app.route('/set_master_key', methods=['POST'])
-def set_master_key_endpoint():
+@app.route('/register_activation_key', methods=['POST'])
+def register_activation_key_endpoint():
     """
-    Endpoint do ustawiania głównego klucza aktywacyjnego w backendzie.
-    Pozwala na ustawienie klucza tylko raz na sesję backendu.
+    Endpoint do generowania i zapisywania nowego klucza aktywacyjnego w Firestore z datą wygaśnięcia.
     """
-    global _backend_master_key
+    if not firestore_db:
+        return jsonify({"status": "error", "message": "Błąd serwera: Firestore nie jest zainicjowany."}), 500
+    
     if not request.is_json:
         return jsonify({"status": "error", "message": "Content-Type musi być application/json"}), 400
 
@@ -289,20 +315,38 @@ def set_master_key_endpoint():
     if not UUID_PATTERN.match(new_key):
         return jsonify({"status": "error", "message": "Nieprawidłowy format klucza aktywacyjnego. Oczekiwano formatu UUID."}), 400
 
-    if _backend_master_key is None:
-        _backend_master_key = new_key
-        print(f"Ustawiono klucz mastera: {_backend_master_key}") # Dla celów debugowania
-        return jsonify({"status": "success", "message": "Klucz aktywacyjny mastera został ustawiony."}), 200
-    else:
-        return jsonify({"status": "error", "message": "Klucz aktywacyjny mastera jest już ustawiony. Nie można go nadpisać w tej sesji."}), 409 # Conflict
+    try:
+        key_doc_ref = firestore_db.collection(KEYS_COLLECTION_PATH).document(new_key)
+        
+        # Sprawdź, czy klucz już istnieje
+        doc = key_doc_ref.get()
+        if doc.exists:
+            return jsonify({"status": "error", "message": "Ten klucz aktywacyjny już istnieje. Proszę wygenerować nowy."}), 409 # Conflict
+        
+        # Oblicz datę wygaśnięcia (7 dni od teraz)
+        generated_at = datetime.now()
+        expires_at = generated_at + timedelta(days=7)
+        
+        key_doc_ref.set({
+            "generated_at": generated_at,
+            "expires_at": expires_at,
+            "is_active": True # Można dodać flagę do ręcznej dezaktywacji
+        })
+        print(f"Zarejestrowano nowy klucz w Firestore: {new_key}, wygasa: {expires_at}")
+        return jsonify({"status": "success", "message": "Klucz aktywacyjny został pomyślnie zarejestrowany."}), 200
+    except Exception as e:
+        print(f"Błąd podczas rejestracji klucza w Firestore: {e}")
+        return jsonify({"status": "error", "message": f"Wystąpił błąd serwera podczas rejestracji klucza: {e}"}), 500
+
 
 @app.route('/activate', methods=['POST'])
 def activate_endpoint():
     """
-    Endpoint do weryfikacji klucza aktywacyjnego.
-    Porównuje przesłany klucz z kluczem ustawionym w backendzie.
+    Endpoint do weryfikacji klucza aktywacyjnego z Firestore.
     """
-    global _backend_master_key
+    if not firestore_db:
+        return jsonify({"status": "error", "message": "Błąd serwera: Firestore nie jest zainicjowany."}), 500
+
     if not request.is_json:
         return jsonify({"status": "error", "message": "Content-Type musi być application/json"}), 400
 
@@ -312,13 +356,34 @@ def activate_endpoint():
     if not entered_key:
         return jsonify({"status": "error", "message": "Brakuje klucza aktywacyjnego."}), 400
     
-    if _backend_master_key is None:
-        return jsonify({"status": "error", "message": "Błąd aktywacji: Klucz mastera nie został jeszcze ustawiony na backendzie. Proszę wygenerować go na stronie key.html i wysłać."}), 400
+    if not UUID_PATTERN.match(entered_key):
+        return jsonify({"status": "error", "message": "Nieprawidłowy format klucza aktywacyjnego. Oczekiwano formatu UUID."}), 400
 
-    if entered_key == _backend_master_key:
-        return jsonify({"status": "success", "message": "Klucz aktywacyjny jest poprawny!"}), 200
-    else:
-        return jsonify({"status": "error", "message": "Nieprawidłowy klucz aktywacyjny."}), 401 # Unauthorized
+    try:
+        key_doc_ref = firestore_db.collection(KEYS_COLLECTION_PATH).document(entered_key)
+        doc = key_doc_ref.get()
+
+        if not doc.exists:
+            return jsonify({"status": "error", "message": "Klucz aktywacyjny nie istnieje."}), 401 # Unauthorized
+        
+        key_data = doc.to_dict()
+        expires_at_timestamp = key_data.get('expires_at')
+        is_active = key_data.get('is_active', True) # Domyślnie aktywny, jeśli flaga nie istnieje
+
+        if not is_active:
+            return jsonify({"status": "error", "message": "Klucz aktywacyjny został dezaktywowany."}), 401
+
+        # Firestore Timestamp objects convert to datetime objects in Python
+        if expires_at_timestamp and datetime.now() < expires_at_timestamp:
+            return jsonify({"status": "success", "message": "Klucz aktywacyjny jest poprawny!"}), 200
+        else:
+            print(f"Klucz {entered_key} wygasł lub jest niepoprawny. Wygasł o: {expires_at_timestamp}")
+            return jsonify({"status": "error", "message": "Klucz aktywacyjny wygasł."}), 401
+            
+    except Exception as e:
+        print(f"Błąd podczas weryfikacji klucza w Firestore: {e}")
+        return jsonify({"status": "error", "message": f"Wystąpił błąd serwera podczas weryfikacji klucza: {e}"}), 500
+
 
 @app.route('/send_ngl_message', methods=['POST'])
 def send_message_endpoint():
@@ -363,8 +428,8 @@ def start_spam_endpoint():
     if not username or not message or not base_deviceId:
         return jsonify({"status": "error", "message": "Brakuje nazwy użytkownika, treści wiadomości lub Device ID."}), 400
 
-    with history_lock: # Zabezpiecz dostęp do active_spanners
-        if username in active_spanners and active_spanners[username]['main_thread'].is_alive():
+    with history_lock: # Zabezpiecz dostęp do active_spammers
+        if username in active_spammers and active_spammers[username]['main_thread'].is_alive():
             return jsonify({"status": "error", "message": f"Spamowanie dla użytkownika {username} już jest aktywne."}), 409 # Conflict
 
         stop_event = threading.Event()
@@ -377,7 +442,7 @@ def start_spam_endpoint():
         main_thread.daemon = True
         main_thread.start()
 
-        active_spanners[username] = {
+        active_spammers[username] = {
             'main_thread': main_thread,
             'stop_event': stop_event,
             'history': history_queue,
@@ -402,11 +467,11 @@ def stop_spam_endpoint():
     if not username:
         return jsonify({"status": "error", "message": "Brakuje nazwy użytkownika."}), 400
 
-    with history_lock: # Zabezpiecz dostęp do active_spanners
-        if username in active_spanners and active_spanners[username]['main_thread'].is_alive():
-            active_spanners[username]['stop_event'].set()
+    with history_lock: # Zabezpiecz dostęp do active_spammers
+        if username in active_spammers and active_spammers[username]['main_thread'].is_alive():
+            active_spammers[username]['stop_event'].set()
             # Opcjonalnie: poczekaj na zakończenie wątku (thread.join()), ale może zablokować HTTP
-            # active_spanners[username]['main_thread'].join(timeout=5)
+            # active_spammers[username]['main_thread'].join(timeout=5)
             # del active_spanners[username] # Usuń po całkowitym zatrzymaniu
             return jsonify({"status": "success", "message": f"Wysłano sygnał zatrzymania spamowania dla użytkownika {username}. Proszę poczekać na zakończenie wątków."}), 200
         else:
@@ -417,8 +482,8 @@ def get_spam_status(username):
     """
     Endpoint do pobierania statusu spamowania i ostatnich wiadomości dla danego użytkownika.
     """
-    with history_lock: # Zabezpiecz dostęp do active_spanners
-        spammer_info = active_spanners.get(username)
+    with history_lock: # Zabezpiecz dostęp do active_spammers
+        spammer_info = active_spammers.get(username)
 
         if spammer_info and spammer_info['main_thread'].is_alive():
             # Sprawdź, czy którykolwiek z wątków proxy jest nadal aktywny
