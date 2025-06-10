@@ -71,7 +71,8 @@ class NGLSenderBackend:
         else:
             try:
                 with open("proxies.txt", "r") as f:
-                    proxy_lines = [line.strip() for f.readlines() if line.strip()]
+                    # Poprawka: Iteruj po liniach zwróconych przez f.readlines()
+                    proxy_lines = [line.strip() for line in f.readlines() if line.strip()]
             except FileNotFoundError:
                 print("Plik 'proxies.txt' nie znaleziony i zmienna środowiskowa PROXY_LIST nie ustawiona. Wysyłanie bez proxy.")
                 return None
@@ -263,7 +264,7 @@ class NGLSenderBackend:
         
         # Zapisz wątki do globalnego słownika
         with history_lock: # Zabezpiecz dostęp do active_spammers
-            active_spammers[username]['proxy_threads'] = proxy_threads
+            active_spanners[username]['proxy_threads'] = proxy_threads
 
         # Główny wątek orchestratora po prostu czeka na sygnał stop
         stop_event.wait() # Czekaj, aż stop_event zostanie ustawiony
@@ -428,8 +429,8 @@ def start_spam_endpoint():
     if not username or not message or not base_deviceId:
         return jsonify({"status": "error", "message": "Brakuje nazwy użytkownika, treści wiadomości lub Device ID."}), 400
 
-    with history_lock: # Zabezpiecz dostęp do active_spammers
-        if username in active_spammers and active_spammers[username]['main_thread'].is_alive():
+    with history_lock: # Zabezpiecz dostęp do active_spanners
+        if username in active_spanners and active_spanners[username]['main_thread'].is_alive():
             return jsonify({"status": "error", "message": f"Spamowanie dla użytkownika {username} już jest aktywne."}), 409 # Conflict
 
         stop_event = threading.Event()
@@ -442,7 +443,7 @@ def start_spam_endpoint():
         main_thread.daemon = True
         main_thread.start()
 
-        active_spammers[username] = {
+        active_spanners[username] = {
             'main_thread': main_thread,
             'stop_event': stop_event,
             'history': history_queue,
@@ -467,11 +468,11 @@ def stop_spam_endpoint():
     if not username:
         return jsonify({"status": "error", "message": "Brakuje nazwy użytkownika."}), 400
 
-    with history_lock: # Zabezpiecz dostęp do active_spammers
-        if username in active_spammers and active_spammers[username]['main_thread'].is_alive():
-            active_spammers[username]['stop_event'].set()
+    with history_lock: # Zabezpiecz dostęp do active_spanners
+        if username in active_spanners and active_spanners[username]['main_thread'].is_alive():
+            active_spanners[username]['stop_event'].set()
             # Opcjonalnie: poczekaj na zakończenie wątku (thread.join()), ale może zablokować HTTP
-            # active_spammers[username]['main_thread'].join(timeout=5)
+            # active_spanners[username]['main_thread'].join(timeout=5)
             # del active_spanners[username] # Usuń po całkowitym zatrzymaniu
             return jsonify({"status": "success", "message": f"Wysłano sygnał zatrzymania spamowania dla użytkownika {username}. Proszę poczekać na zakończenie wątków."}), 200
         else:
@@ -482,8 +483,8 @@ def get_spam_status(username):
     """
     Endpoint do pobierania statusu spamowania i ostatnich wiadomości dla danego użytkownika.
     """
-    with history_lock: # Zabezpiecz dostęp do active_spammers
-        spammer_info = active_spammers.get(username)
+    with history_lock: # Zabezpiecz dostęp do active_spanners
+        spammer_info = active_spanners.get(username)
 
         if spammer_info and spammer_info['main_thread'].is_alive():
             # Sprawdź, czy którykolwiek z wątków proxy jest nadal aktywny
