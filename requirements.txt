@@ -1,4 +1,3 @@
 Flask
 requests
-gunicorn # Potrzebne do wdrożenia na Render.com
-Procfile (dla Render.com):
+gunicorn
