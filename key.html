@@ -57,7 +57,7 @@
         }
         button {
             padding: 12px 25px;
-            background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); /* Zmieniony kolor na niebieski, bo to kopiowanie */
             color: white;
             border: none;
             border-radius: 10px;
@@ -67,11 +67,11 @@
             transition: all 0.3s ease;
             margin-top: 15px;
             margin-bottom: 10px;
-            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.2);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.2);
         }
         button:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(40, 167, 69, 0.3);
+            box-shadow: 0 8px 20px rgba(52, 152, 219, 0.3);
         }
         button:active {
             transform: translateY(0);
@@ -96,10 +96,9 @@
 <body>
     <div class="container">
         <h1>Generuj Klucz Aktywacyjny</h1>
-        <p>Ten klucz jest potrzebny do uzyskania dostępu do spamerki. Zostanie on zapisany w Twoich ciasteczkach.</p>
+        <p>Twój klucz aktywacyjny został automatycznie wygenerowany i zapisany w ciasteczkach. Skopiuj go i użyj w spamerce.</p>
         <div class="key-display" id="activationKeyDisplay"></div>
-        <button id="generateKeyButton">Generuj i Zapisz Klucz</button>
-        <button id="copyKeyButton" style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); display: none;">Kopiuj Klucz</button>
+        <button id="copyKeyButton">Kopiuj Klucz</button>
         <p class="info-message" id="message"></p>
         <a href="index.html">Przejdź do Spamerki</a>
     </div>
@@ -136,36 +135,29 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             const keyDisplay = document.getElementById('activationKeyDisplay');
-            const generateButton = document.getElementById('generateKeyButton');
             const copyButton = document.getElementById('copyKeyButton');
             const messageElem = document.getElementById('message');
 
-            const cookieKey = getCookie('activationKey');
-            if (cookieKey) {
-                keyDisplay.textContent = cookieKey;
-                messageElem.textContent = "Twój klucz jest już zapisany w ciasteczkach.";
-                generateButton.textContent = "Wygeneruj nowy klucz";
-                copyButton.style.display = 'inline-block';
-            } else {
-                keyDisplay.textContent = "Klucz zostanie wygenerowany po kliknięciu.";
-                messageElem.textContent = "Kliknij przycisk, aby wygenerować klucz aktywacyjny.";
-            }
+            let currentKey = getCookie('activationKey');
 
-            generateButton.addEventListener('click', () => {
-                const newKey = generateUUID();
-                setCookie('activationKey', newKey, 365); // Klucz ważny przez 365 dni
-                keyDisplay.textContent = newKey;
+            if (!currentKey) {
+                // Jeśli klucz nie istnieje, wygeneruj nowy i zapisz go
+                currentKey = generateUUID();
+                setCookie('activationKey', currentKey, 365); // Klucz ważny przez 365 dni
+                keyDisplay.textContent = currentKey;
                 messageElem.textContent = "Nowy klucz został wygenerowany i zapisany w ciasteczkach!";
-                generateButton.textContent = "Wygeneruj nowy klucz";
-                copyButton.style.display = 'inline-block';
-            });
+            } else {
+                // Jeśli klucz już istnieje, po prostu go wyświetl
+                keyDisplay.textContent = currentKey;
+                messageElem.textContent = "Twój klucz jest już zapisany w ciasteczkach.";
+            }
 
             copyButton.addEventListener('click', () => {
                 const keyToCopy = keyDisplay.textContent;
                 navigator.clipboard.writeText(keyToCopy).then(() => {
                     messageElem.textContent = "Klucz skopiowany do schowka!";
                     setTimeout(() => {
-                        messageElem.textContent = "Nowy klucz został wygenerowany i zapisany w ciasteczkach!"; // Przywróć oryginalny tekst
+                        messageElem.textContent = "Twój klucz jest już zapisany w ciasteczkach."; // Przywróć oryginalny tekst
                     }, 2000);
                 }).catch(err => {
                     console.error('Błąd kopiowania:', err);
