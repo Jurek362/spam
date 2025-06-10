@@ -11,6 +11,10 @@ from collections import deque # Do przechowywania ostatnich wiadomości
 app = Flask(__name__)
 CORS(app) # Dodane CORS, aby frontend mógł łączyć się z backendem
 
+# STAŁY KLUCZ AKTYWACYJNY - ZMIEŃ NA WŁASNY, UNIKALNY KLUCZ!
+# W prawdziwej aplikacji, to powinno być pobierane ze zmiennej środowiskowej (np. os.environ.get("MASTER_KEY"))
+MASTER_ACTIVATION_KEY = "YourSecretActivationKey123" 
+
 # Globalny słownik do zarządzania aktywnymi sesjami spamującymi użytkowników.
 # Klucz: username (str), Wartość: {'stop_event': Event, 'proxy_threads': list, 'history': deque, 'request_counter': int}
 active_spammers = {}
@@ -37,7 +41,6 @@ class NGLSenderBackend:
         else:
             try:
                 with open("proxies.txt", "r") as f:
-                    # POPRAWKA: Dodano 'line in' do listy składanej
                     proxy_lines = [line.strip() for line in f.readlines() if line.strip()]
             except FileNotFoundError:
                 print("Plik 'proxies.txt' nie znaleziony i zmienna środowiskowa PROXY_LIST nie ustawiona. Wysyłanie bez proxy.")
@@ -53,6 +56,21 @@ class NGLSenderBackend:
                 print(f"Ostrzeżenie: Niepoprawny format proxy w linii: {line}. Oczekiwano ip:port:uzytkownik:haslo")
         
         return formatted_proxies if formatted_proxies else None
+
+    def _format_proxies_from_input(self, raw_proxy_lines: list[str]):
+        """
+        Formatuje listę surowych stringów proxy (ip:port:user:pwd) do formatu HTTP(S) z uwierzytelnieniem.
+        """
+        formatted_proxies = []
+        for line in raw_proxy_lines:
+            parts = line.split(":")
+            if len(parts) == 4:
+                ip, port, user, pwd = parts
+                formatted_proxies.append(f"http://{user}:{pwd}@{ip}:{port}")
+            else:
+                print(f"Ostrzeżenie: Niepoprawny format proxy w linii: {line}. Oczekiwano ip:port:uzytkownik:haslo")
+        return formatted_proxies if formatted_proxies else None
+
 
     def send_single_message_via_proxy(self, username: str, message: str, deviceId: str, proxy_url: str):
         """
@@ -93,8 +111,7 @@ class NGLSenderBackend:
                     used_proxy_display = selected_proxy # Jeśli format nie pasuje, wyświetl cały URL
             except:
                 used_proxy_display = "Ukryte proxy (błąd parsowania)"
-        else: # Jeśli brak proxy, upewnij się, że proxy_config jest None
-            proxy_config = None
+        # else: # Jeśli brak proxy, proxy_config jest None (domyślnie)
 
         try:
             response = requests.post(api_url, headers=headers, data=data, proxies=proxy_config, timeout=10)
@@ -170,30 +187,44 @@ class NGLSenderBackend:
             with history_lock: # Zabezpiecz dostęp do history_queue
                 history_queue.append(history_entry)
             
-            print(f"[{username}] Żądanie #{request_num} | Status: {result['status']} | Proxy: {result['proxy_used']}")
+            # Format wyjścia w konsoli: [+] Request #21 | Wysłano! | Proxy: http://45.115.136.32:8080
+            status_char = "[+]" if result['status'] == 'success' else "[-]"
+            print(f"{status_char} Request #{request_num} | {result['message']} | Proxy: {result['proxy_used']}")
             
             # Poczekaj chwilę, jeśli nie ma sygnału stop
             time.sleep(interval)
         print(f"[{username}] Zatrzymano wątek dla proxy: {proxy_url}")
 
 
-    def _spam_orchestrator(self, username: str, message: str, base_deviceId: str, stop_event: threading.Event, history_queue: deque, request_counter_lock: threading.Lock, interval: float):
+    def _spam_orchestrator(self, username: str, message: str, base_deviceId: str, stop_event: threading.Event, history_queue: deque, request_counter_lock: threading.Lock, interval: float, custom_proxies: list[str] | None = None):
         """
         Orchestrator tworzy i zarządza wątkami spamującymi dla każdego proxy.
+        Używa custom_proxies, jeśli są dostarczone i niepuste, w przeciwnym razie używa domyślnych.
         """
-        if not self.proxies:
+        proxies_to_use = []
+        if custom_proxies:
+            formatted_custom_proxies = self._format_proxies_from_input(custom_proxies)
+            if formatted_custom_proxies:
+                proxies_to_use = formatted_custom_proxies
+            else:
+                print(f"[{username}] Niestandardowe proxy są puste lub niepoprawnie sformatowane. Używam domyślnych proxy.")
+                proxies_to_use = self.proxies
+        else:
+            proxies_to_use = self.proxies
+
+        if not proxies_to_use:
             print(f"[{username}] Brak proxy. Spamowanie niemożliwe.")
             history_queue.append({
                 "request_num": 0, "timestamp": time.time(), "status": "error",
                 "message": message, "username": username, "deviceId": base_deviceId,
                 "response_message": "Brak skonfigurowanych proxy. Spamowanie niemożliwe.",
-                "proxy_used": "N/A", "http_status": "No Proxies"
+                "proxy_used": "N/A", "http_status": "No Proxies", "details": ""
             })
             stop_event.set() # Natychmiast zatrzymaj, jeśli nie ma proxy
             return
 
         proxy_threads = []
-        for proxy_url in self.proxies:
+        for proxy_url in proxies_to_use:
             thread = threading.Thread(target=self._single_proxy_spam_task, 
                                       args=(username, message, base_deviceId, proxy_url, stop_event, history_queue, request_counter_lock, interval))
             thread.daemon = True # Uruchom jako daemon, aby zakończył się z głównym programem
@@ -228,9 +259,29 @@ def home():
             "send_message": "/send_ngl_message [POST]",
             "start_spam": "/start_spam [POST]",
             "stop_spam": "/stop_spam [POST]",
-            "spam_status": "/spam_status/<username> [GET]"
+            "spam_status": "/spam_status/<username> [GET]",
+            "activate": "/activate [POST]" # Nowy endpoint
         }
     })
+
+@app.route('/activate', methods=['POST'])
+def activate_endpoint():
+    """
+    Endpoint do weryfikacji klucza aktywacyjnego.
+    """
+    if not request.is_json:
+        return jsonify({"status": "error", "message": "Content-Type musi być application/json"}), 400
+
+    data = request.get_json()
+    entered_key = data.get('key')
+
+    if not entered_key:
+        return jsonify({"status": "error", "message": "Brakuje klucza aktywacyjnego."}), 400
+
+    if entered_key == MASTER_ACTIVATION_KEY:
+        return jsonify({"status": "success", "message": "Klucz aktywacyjny jest poprawny!"}), 200
+    else:
+        return jsonify({"status": "error", "message": "Nieprawidłowy klucz aktywacyjny."}), 401 # Unauthorized
 
 @app.route('/send_ngl_message', methods=['POST'])
 def send_message_endpoint():
@@ -259,6 +310,7 @@ def send_message_endpoint():
 def start_spam_endpoint():
     """
     Endpoint do rozpoczęcia ciągłego spamowania.
+    Teraz wymaga klucza aktywacyjnego do weryfikacji.
     """
     if not request.is_json:
         return jsonify({"status": "error", "message": "Content-Type musi być application/json"}), 400
@@ -268,9 +320,15 @@ def start_spam_endpoint():
     message = data.get('message')
     base_deviceId = data.get('deviceId') # To jest ID sesji z frontendu
     interval = float(data.get('interval', 1)) # Domyślnie 1 sekunda, konwersja na float
+    raw_proxy_list_from_input = data.get('proxy_list', None) # Opcjonalna lista proxy z frontendu
+    activation_key_from_frontend = data.get('activation_key') # Odbierz klucz aktywacyjny
 
     if not username or not message or not base_deviceId:
         return jsonify({"status": "error", "message": "Brakuje nazwy użytkownika, treści wiadomości lub Device ID."}), 400
+
+    # Weryfikacja klucza aktywacyjnego przed rozpoczęciem spamowania
+    if not activation_key_from_frontend or activation_key_from_frontend != MASTER_ACTIVATION_KEY:
+        return jsonify({"status": "error", "message": "Błąd aktywacji: Nieprawidłowy lub brak klucza aktywacyjnego."}), 401
 
     with history_lock: # Zabezpiecz dostęp do active_spammers
         if username in active_spammers and active_spammers[username]['main_thread'].is_alive():
@@ -282,7 +340,7 @@ def start_spam_endpoint():
 
         # Główny wątek orchestratora
         main_thread = threading.Thread(target=ngl_sender_backend._spam_orchestrator, 
-                                       args=(username, message, base_deviceId, stop_event, history_queue, request_counter_lock, interval))
+                                       args=(username, message, base_deviceId, stop_event, history_queue, request_counter_lock, interval, raw_proxy_list_from_input))
         main_thread.daemon = True
         main_thread.start()
 
