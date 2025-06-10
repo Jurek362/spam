@@ -13,7 +13,7 @@ CORS(app) # Dodane CORS, aby frontend mógł łączyć się z backendem
 
 # Globalny słownik do zarządzania aktywnymi sesjami spamującymi użytkowników.
 # Klucz: username (str), Wartość: {'stop_event': Event, 'proxy_threads': list, 'history': deque, 'request_counter': int}
-active_spammers = {} # Corrected: active_spammers
+active_spammers = {}
 # Używamy zamka do bezpiecznego dostępu do history_queue i request_counter
 history_lock = threading.Lock()
 
@@ -37,7 +37,8 @@ class NGLSenderBackend:
         else:
             try:
                 with open("proxies.txt", "r") as f:
-                    proxy_lines = [line.strip() for f.readlines() if line.strip()]
+                    # POPRAWKA: Dodano 'line in' do listy składanej
+                    proxy_lines = [line.strip() for line in f.readlines() if line.strip()]
             except FileNotFoundError:
                 print("Plik 'proxies.txt' nie znaleziony i zmienna środowiskowa PROXY_LIST nie ustawiona. Wysyłanie bez proxy.")
                 return None
@@ -272,7 +273,6 @@ def start_spam_endpoint():
         return jsonify({"status": "error", "message": "Brakuje nazwy użytkownika, treści wiadomości lub Device ID."}), 400
 
     with history_lock: # Zabezpiecz dostęp do active_spammers
-        # Corrected: active_spammers
         if username in active_spammers and active_spammers[username]['main_thread'].is_alive():
             return jsonify({"status": "error", "message": f"Spamowanie dla użytkownika {username} już jest aktywne."}), 409 # Conflict
 
@@ -286,7 +286,7 @@ def start_spam_endpoint():
         main_thread.daemon = True
         main_thread.start()
 
-        active_spammers[username] = { # Corrected: active_spammers
+        active_spammers[username] = {
             'main_thread': main_thread,
             'stop_event': stop_event,
             'history': history_queue,
@@ -312,9 +312,8 @@ def stop_spam_endpoint():
         return jsonify({"status": "error", "message": "Brakuje nazwy użytkownika."}), 400
 
     with history_lock: # Zabezpiecz dostęp do active_spammers
-        # Corrected: active_spammers
         if username in active_spammers and active_spammers[username]['main_thread'].is_alive():
-            active_spammers[username]['stop_event'].set() # Corrected: active_spammers
+            active_spammers[username]['stop_event'].set()
             # Opcjonalnie: poczekaj na zakończenie wątku (thread.join()), ale może zablokować HTTP
             # active_spammers[username]['main_thread'].join(timeout=5)
             # del active_spammers[username] # Usuń po całkowitym zatrzymaniu
@@ -328,7 +327,7 @@ def get_spam_status(username):
     Endpoint do pobierania statusu spamowania i ostatnich wiadomości dla danego użytkownika.
     """
     with history_lock: # Zabezpiecz dostęp do active_spammers
-        spammer_info = active_spammers.get(username) # Corrected: active_spammers
+        spammer_info = active_spammers.get(username)
 
         if spammer_info and spammer_info['main_thread'].is_alive():
             # Sprawdź, czy którykolwiek z wątków proxy jest nadal aktywny
