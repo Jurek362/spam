@@ -1,10 +1,12 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import requests
 import uuid
 import random
 import os
 
 app = Flask(__name__)
+CORS(app)  # Dodane CORS aby frontend mógł się łączyć z backendem
 
 class NGLSenderBackend:
     """
@@ -91,11 +93,32 @@ class NGLSenderBackend:
 # Inicjalizacja instancji klasy NGLSenderBackend
 ngl_sender_backend = NGLSenderBackend()
 
-@app.route('/send_ngl_message', methods=['POST'])
+@app.route('/', methods=['GET'])
+def home():
+    """
+    Endpoint główny - sprawdzenie czy serwer działa
+    """
+    return jsonify({
+        "status": "online",
+        "message": "NGL Sender Backend jest aktywny",
+        "endpoints": {
+            "send_message": "/send_ngl_message [POST]"
+        }
+    })
+
+@app.route('/send_ngl_message', methods=['POST', 'OPTIONS'])
 def send_message_endpoint():
     """
     Endpoint API do odbierania żądań wysłania wiadomości z frontendu.
     """
+    # Obsługa preflight OPTIONS request (CORS)
+    if request.method == 'OPTIONS':
+        response = jsonify({'status': 'ok'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'POST')
+        return response
+    
     # Sprawdź, czy żądanie ma poprawny typ Content-Type (application/json)
     if not request.is_json:
         return jsonify({"status": "error", "message": "Content-Type musi być application/json"}), 400
@@ -119,6 +142,20 @@ def send_message_endpoint():
     else:
         # Zwróć błąd serwera dla problemów z wysyłaniem do NGL.link
         return jsonify(result), 500
+
+@app.errorhandler(404)
+def not_found(error):
+    """
+    Obsługa błędu 404
+    """
+    return jsonify({"status": "error", "message": "Endpoint nie znaleziony"}), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    """
+    Obsługa błędu 500
+    """
+    return jsonify({"status": "error", "message": "Wewnętrzny błąd serwera"}), 500
 
 if __name__ == '__main__':
     # Uruchomienie aplikacji Flask.
