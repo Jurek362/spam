@@ -96,7 +96,7 @@
 <body>
     <div class="container">
         <h1>Generuj Klucz Aktywacyjny</h1>
-        <p>Twój klucz aktywacyjny został automatycznie wygenerowany i zapisany w ciasteczkach. Skopiuj go i użyj w spamerce.</p>
+        <p>Twój klucz aktywacyjny został automatycznie zapisany w ciasteczkach. Skopiuj go i użyj w spamerce.</p>
         <div class="key-display" id="activationKeyDisplay"></div>
         <button id="copyKeyButton">Kopiuj Klucz</button>
         <p class="info-message" id="message"></p>
@@ -157,7 +157,7 @@
                 navigator.clipboard.writeText(keyToCopy).then(() => {
                     messageElem.textContent = "Klucz skopiowany do schowka!";
                     setTimeout(() => {
-                        messageElem.textContent = "Twój klucz jest już zapisany w ciasteczkach."; // Przywróć oryginalny tekst
+                        messageElem.textContent = "Twój klucz jest już zapisany w ciasteczkach."; 
                     }, 2000);
                 }).catch(err => {
                     console.error('Błąd kopiowania:', err);
