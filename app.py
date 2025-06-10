@@ -8,11 +8,7 @@ import threading
 import time
 from collections import deque # Do przechowywania ostatnich wiadomości
 import re # Importujemy moduł do wyrażeń regularnych
-
-# Firebase imports
-import firebase_admin
-from firebase_admin import credentials, firestore
-from datetime import datetime, timedelta
+# Usunięto importy Firebase: firebase_admin, credentials, firestore, datetime, timedelta, json
 
 app = Flask(__name__)
 CORS(app) # Dodane CORS, aby frontend mógł łączyć się z backendem
@@ -20,30 +16,11 @@ CORS(app) # Dodane CORS, aby frontend mógł łączyć się z backendem
 # Wzorzec do walidacji formatu UUID
 UUID_PATTERN = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$', re.IGNORECASE)
 
-# Inicjalizacja Firebase Admin SDK
-firestore_db = None
-try:
-    # Spróbuj zainicjować Firebase Admin SDK.
-    # W środowiskach Google Cloud (App Engine, Cloud Run) często działa automatycznie.
-    # W innych środowiskach (np. Render.com), upewnij się, że zmienna środowiskowa
-    # GOOGLE_APPLICATION_CREDENTIALS wskazuje na plik klucza konta serwisowego.
-    if not firebase_admin._apps: # Uniknij ponownej inicjalizacji w testach
-        firebase_admin.initialize_app()
-    firestore_db = firestore.client()
-    print("Firebase Admin SDK zainicjowane pomyślnie.")
-except Exception as e:
-    print(f"Błąd inicjalizacji Firebase Admin SDK: {e}. Funkcje Firestore mogą nie działać.")
-    firestore_db = None # Ustaw na None, jeśli inicjalizacja się nie powiedzie
-
-# app_id pobrane ze zmiennej środowiskowej, która powinna być ustawiona podczas wdrożenia.
-# Jest to konieczne do budowania ścieżki kolekcji w Firestore.
-app_id = os.environ.get('APP_ID', 'default-canvas-app-id')
-
-# Definicja ścieżki kolekcji Firestore dla kluczy aktywacyjnych
-# Zgodnie z zasadami: /artifacts/{appId}/public/data/{your_collection_name}
-KEYS_COLLECTION_PATH = f"artifacts/{app_id}/public/data/activation_keys"
-print(f"Ścieżka kolekcji kluczy Firestore: {KEYS_COLLECTION_PATH}")
-
+# Globalna zmienna do przechowywania klucza aktywacyjnego ustawionego z key.html
+# UWAGA: Klucz ten będzie resetowany po każdym restarcie serwera (np. na Render.com),
+# ponieważ nie używamy trwałej bazy danych. Klucze nie wygasają czasowo, ale tracą ważność
+# po restarcie backendu, wymagając ponownego ustawienia z key.html.
+_backend_master_key = None
 
 # Globalny słownik do zarządzania aktywnymi sesjami spamującymi użytkowników.
 # Klucz: username (str), Wartość: {'stop_event': Event, 'proxy_threads': list, 'history': deque, 'request_counter': int}
@@ -71,7 +48,6 @@ class NGLSenderBackend:
         else:
             try:
                 with open("proxies.txt", "r") as f:
-                    # Poprawka: Iteruj po liniach zwróconych przez f.readlines()
                     proxy_lines = [line.strip() for line in f.readlines() if line.strip()]
             except FileNotFoundError:
                 print("Plik 'proxies.txt' nie znaleziony i zmienna środowiskowa PROXY_LIST nie ustawiona. Wysyłanie bez proxy.")
@@ -291,7 +267,7 @@ def home():
             "start_spam": "/start_spam [POST]",
             "stop_spam": "/stop_spam [POST]",
             "spam_status": "/spam_status/<username> [GET]",
-            "register_activation_key": "/register_activation_key [POST]", # Zmieniona nazwa
+            "register_activation_key": "/register_activation_key [POST]", 
             "activate": "/activate [POST]" 
         }
     })
@@ -299,10 +275,10 @@ def home():
 @app.route('/register_activation_key', methods=['POST'])
 def register_activation_key_endpoint():
     """
-    Endpoint do generowania i zapisywania nowego klucza aktywacyjnego w Firestore z datą wygaśnięcia.
+    Endpoint do generowania i zapisywania nowego klucza aktywacyjnego w backendzie.
+    Klucz jest przechowywany tymczasowo i resetuje się po restarcie serwera.
     """
-    if not firestore_db:
-        return jsonify({"status": "error", "message": "Błąd serwera: Firestore nie jest zainicjowany."}), 500
+    global _backend_master_key # Użyj globalnej zmiennej
     
     if not request.is_json:
         return jsonify({"status": "error", "message": "Content-Type musi być application/json"}), 400
@@ -316,38 +292,23 @@ def register_activation_key_endpoint():
     if not UUID_PATTERN.match(new_key):
         return jsonify({"status": "error", "message": "Nieprawidłowy format klucza aktywacyjnego. Oczekiwano formatu UUID."}), 400
 
-    try:
-        key_doc_ref = firestore_db.collection(KEYS_COLLECTION_PATH).document(new_key)
-        
-        # Sprawdź, czy klucz już istnieje
-        doc = key_doc_ref.get()
-        if doc.exists:
-            return jsonify({"status": "error", "message": "Ten klucz aktywacyjny już istnieje. Proszę wygenerować nowy."}), 409 # Conflict
-        
-        # Oblicz datę wygaśnięcia (7 dni od teraz)
-        generated_at = datetime.now()
-        expires_at = generated_at + timedelta(days=7)
-        
-        key_doc_ref.set({
-            "generated_at": generated_at,
-            "expires_at": expires_at,
-            "is_active": True # Można dodać flagę do ręcznej dezaktywacji
-        })
-        print(f"Zarejestrowano nowy klucz w Firestore: {new_key}, wygasa: {expires_at}")
-        return jsonify({"status": "success", "message": "Klucz aktywacyjny został pomyślnie zarejestrowany."}), 200
-    except Exception as e:
-        print(f"Błąd podczas rejestracji klucza w Firestore: {e}")
-        return jsonify({"status": "error", "message": f"Wystąpił błąd serwera podczas rejestracji klucza: {e}"}), 500
+    # Tylko jeden klucz może być ustawiony w sesji backendu
+    if _backend_master_key is None:
+        _backend_master_key = new_key
+        print(f"Zarejestrowano nowy klucz w backendzie (tymczasowo): {new_key}")
+        return jsonify({"status": "success", "message": "Klucz aktywacyjny został pomyślnie zarejestrowany. Będzie ważny do restartu serwera."}), 200
+    else:
+        return jsonify({"status": "error", "message": "Klucz aktywacyjny jest już ustawiony w tej sesji backendu. Proszę użyć istniejącego lub zrestartować serwer, aby wygenerować nowy."}), 409
 
 
 @app.route('/activate', methods=['POST'])
 def activate_endpoint():
     """
-    Endpoint do weryfikacji klucza aktywacyjnego z Firestore.
+    Endpoint do weryfikacji klucza aktywacyjnego.
+    Porównuje przesłany klucz z kluczem ustawionym w globalnej zmiennej backendu.
     """
-    if not firestore_db:
-        return jsonify({"status": "error", "message": "Błąd serwera: Firestore nie jest zainicjowany."}), 500
-
+    global _backend_master_key # Użyj globalnej zmiennej
+    
     if not request.is_json:
         return jsonify({"status": "error", "message": "Content-Type musi być application/json"}), 400
 
@@ -360,30 +321,13 @@ def activate_endpoint():
     if not UUID_PATTERN.match(entered_key):
         return jsonify({"status": "error", "message": "Nieprawidłowy format klucza aktywacyjnego. Oczekiwano formatu UUID."}), 400
 
-    try:
-        key_doc_ref = firestore_db.collection(KEYS_COLLECTION_PATH).document(entered_key)
-        doc = key_doc_ref.get()
+    if _backend_master_key is None:
+        return jsonify({"status": "error", "message": "Błąd aktywacji: Klucz mastera nie został jeszcze ustawiony w backendzie. Proszę wygenerować go na stronie key.html i wysłać."}), 400
 
-        if not doc.exists:
-            return jsonify({"status": "error", "message": "Klucz aktywacyjny nie istnieje."}), 401 # Unauthorized
-        
-        key_data = doc.to_dict()
-        expires_at_timestamp = key_data.get('expires_at')
-        is_active = key_data.get('is_active', True) # Domyślnie aktywny, jeśli flaga nie istnieje
-
-        if not is_active:
-            return jsonify({"status": "error", "message": "Klucz aktywacyjny został dezaktywowany."}), 401
-
-        # Firestore Timestamp objects convert to datetime objects in Python
-        if expires_at_timestamp and datetime.now() < expires_at_timestamp:
-            return jsonify({"status": "success", "message": "Klucz aktywacyjny jest poprawny!"}), 200
-        else:
-            print(f"Klucz {entered_key} wygasł lub jest niepoprawny. Wygasł o: {expires_at_timestamp}")
-            return jsonify({"status": "error", "message": "Klucz aktywacyjny wygasł."}), 401
-            
-    except Exception as e:
-        print(f"Błąd podczas weryfikacji klucza w Firestore: {e}")
-        return jsonify({"status": "error", "message": f"Wystąpił błąd serwera podczas weryfikacji klucza: {e}"}), 500
+    if entered_key == _backend_master_key:
+        return jsonify({"status": "success", "message": "Klucz aktywacyjny jest poprawny!"}), 200
+    else:
+        return jsonify({"status": "error", "message": "Nieprawidłowy klucz aktywacyjny."}), 401 # Unauthorized
 
 
 @app.route('/send_ngl_message', methods=['POST'])
