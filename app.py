@@ -34,7 +34,7 @@ class NGLSenderBackend:
     def __init__(self):
         self.proxies = self.load_proxies()
 
-    def load_proxies(self):w
+    def load_proxies(self):
         """
         Ładuje serwery proxy. Preferuje zmienną środowiskową PROXY_LIST (dla Render.com),
         a następnie plik 'proxies.txt'.
@@ -363,7 +363,7 @@ def start_spam_endpoint():
     if not username or not message or not base_deviceId:
         return jsonify({"status": "error", "message": "Brakuje nazwy użytkownika, treści wiadomości lub Device ID."}), 400
 
-    with history_lock: # Zabezpiecz dostęp do active_spammers
+    with history_lock: # Zabezpiecz dostęp do active_spanners
         if username in active_spanners and active_spanners[username]['main_thread'].is_alive():
             return jsonify({"status": "error", "message": f"Spamowanie dla użytkownika {username} już jest aktywne."}), 409 # Conflict
 
@@ -402,7 +402,7 @@ def stop_spam_endpoint():
     if not username:
         return jsonify({"status": "error", "message": "Brakuje nazwy użytkownika."}), 400
 
-    with history_lock: # Zabezpiecz dostęp do active_spammers
+    with history_lock: # Zabezpiecz dostęp do active_spanners
         if username in active_spanners and active_spanners[username]['main_thread'].is_alive():
             active_spanners[username]['stop_event'].set()
             # Opcjonalnie: poczekaj na zakończenie wątku (thread.join()), ale może zablokować HTTP
@@ -417,7 +417,7 @@ def get_spam_status(username):
     """
     Endpoint do pobierania statusu spamowania i ostatnich wiadomości dla danego użytkownika.
     """
-    with history_lock: # Zabezpiecz dostęp do active_spammers
+    with history_lock: # Zabezpiecz dostęp do active_spanners
         spammer_info = active_spanners.get(username)
 
         if spammer_info and spammer_info['main_thread'].is_alive():
