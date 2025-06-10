@@ -7,9 +7,18 @@ import os
 import threading
 import time
 from collections import deque # Do przechowywania ostatnich wiadomości
+import re # Importujemy moduł do wyrażeń regularnych
 
 app = Flask(__name__)
 CORS(app) # Dodane CORS, aby frontend mógł łączyć się z backendem
+
+# Wzorzec do walidacji formatu UUID
+UUID_PATTERN = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$', re.IGNORECASE)
+
+# Globalna zmienna do przechowywania klucza aktywacyjnego ustawionego z key.html
+# UWAGA: Klucz ten będzie resetowany po każdym restarcie serwera na Render.com.
+# W produkcyjnej aplikacji wymagane jest użycie bazy danych (np. Redis, Firestore) do trwałego przechowywania.
+_backend_master_key = None
 
 # Globalny słownik do zarządzania aktywnymi sesjami spamującymi użytkowników.
 # Klucz: username (str), Wartość: {'stop_event': Event, 'proxy_threads': list, 'history': deque, 'request_counter': int}
@@ -25,7 +34,7 @@ class NGLSenderBackend:
     def __init__(self):
         self.proxies = self.load_proxies()
 
-    def load_proxies(self):
+    def load_proxies(self):w
         """
         Ładuje serwery proxy. Preferuje zmienną środowiskową PROXY_LIST (dla Render.com),
         a następnie plik 'proxies.txt'.
@@ -229,7 +238,7 @@ class NGLSenderBackend:
         
         # Zapisz wątki do globalnego słownika
         with history_lock: # Zabezpiecz dostęp do active_spammers
-            active_spammers[username]['proxy_threads'] = proxy_threads
+            active_spanners[username]['proxy_threads'] = proxy_threads
 
         # Główny wątek orchestratora po prostu czeka na sygnał stop
         stop_event.wait() # Czekaj, aż stop_event zostanie ustawiony
@@ -256,16 +265,44 @@ def home():
             "start_spam": "/start_spam [POST]",
             "stop_spam": "/stop_spam [POST]",
             "spam_status": "/spam_status/<username> [GET]",
-            "activate": "/activate [POST]" # Nowy endpoint
+            "set_master_key": "/set_master_key [POST]", # Nowy endpoint
+            "activate": "/activate [POST]" 
         }
     })
+
+@app.route('/set_master_key', methods=['POST'])
+def set_master_key_endpoint():
+    """
+    Endpoint do ustawiania głównego klucza aktywacyjnego w backendzie.
+    Pozwala na ustawienie klucza tylko raz na sesję backendu.
+    """
+    global _backend_master_key
+    if not request.is_json:
+        return jsonify({"status": "error", "message": "Content-Type musi być application/json"}), 400
+
+    data = request.get_json()
+    new_key = data.get('key')
+
+    if not new_key:
+        return jsonify({"status": "error", "message": "Brakuje klucza aktywacyjnego."}), 400
+    
+    if not UUID_PATTERN.match(new_key):
+        return jsonify({"status": "error", "message": "Nieprawidłowy format klucza aktywacyjnego. Oczekiwano formatu UUID."}), 400
+
+    if _backend_master_key is None:
+        _backend_master_key = new_key
+        print(f"Ustawiono klucz mastera: {_backend_master_key}") # Dla celów debugowania
+        return jsonify({"status": "success", "message": "Klucz aktywacyjny mastera został ustawiony."}), 200
+    else:
+        return jsonify({"status": "error", "message": "Klucz aktywacyjny mastera jest już ustawiony. Nie można go nadpisać w tej sesji."}), 409 # Conflict
 
 @app.route('/activate', methods=['POST'])
 def activate_endpoint():
     """
     Endpoint do weryfikacji klucza aktywacyjnego.
-    Teraz akceptuje każdy klucz jako poprawny.
+    Porównuje przesłany klucz z kluczem ustawionym w backendzie.
     """
+    global _backend_master_key
     if not request.is_json:
         return jsonify({"status": "error", "message": "Content-Type musi być application/json"}), 400
 
@@ -274,9 +311,14 @@ def activate_endpoint():
 
     if not entered_key:
         return jsonify({"status": "error", "message": "Brakuje klucza aktywacyjnego."}), 400
+    
+    if _backend_master_key is None:
+        return jsonify({"status": "error", "message": "Błąd aktywacji: Klucz mastera nie został jeszcze ustawiony na backendzie. Proszę wygenerować go na stronie key.html i wysłać."}), 400
 
-    # Tutaj backend po prostu akceptuje każdy klucz, spełniając wymóg "każdy klucz wygenerowany pasuje"
-    return jsonify({"status": "success", "message": "Klucz aktywacyjny jest poprawny!"}), 200
+    if entered_key == _backend_master_key:
+        return jsonify({"status": "success", "message": "Klucz aktywacyjny jest poprawny!"}), 200
+    else:
+        return jsonify({"status": "error", "message": "Nieprawidłowy klucz aktywacyjny."}), 401 # Unauthorized
 
 @app.route('/send_ngl_message', methods=['POST'])
 def send_message_endpoint():
@@ -322,7 +364,7 @@ def start_spam_endpoint():
         return jsonify({"status": "error", "message": "Brakuje nazwy użytkownika, treści wiadomości lub Device ID."}), 400
 
     with history_lock: # Zabezpiecz dostęp do active_spammers
-        if username in active_spammers and active_spammers[username]['main_thread'].is_alive():
+        if username in active_spanners and active_spanners[username]['main_thread'].is_alive():
             return jsonify({"status": "error", "message": f"Spamowanie dla użytkownika {username} już jest aktywne."}), 409 # Conflict
 
         stop_event = threading.Event()
@@ -335,7 +377,7 @@ def start_spam_endpoint():
         main_thread.daemon = True
         main_thread.start()
 
-        active_spammers[username] = {
+        active_spanners[username] = {
             'main_thread': main_thread,
             'stop_event': stop_event,
             'history': history_queue,
@@ -361,11 +403,11 @@ def stop_spam_endpoint():
         return jsonify({"status": "error", "message": "Brakuje nazwy użytkownika."}), 400
 
     with history_lock: # Zabezpiecz dostęp do active_spammers
-        if username in active_spammers and active_spammers[username]['main_thread'].is_alive():
-            active_spammers[username]['stop_event'].set()
+        if username in active_spanners and active_spanners[username]['main_thread'].is_alive():
+            active_spanners[username]['stop_event'].set()
             # Opcjonalnie: poczekaj na zakończenie wątku (thread.join()), ale może zablokować HTTP
-            # active_spammers[username]['main_thread'].join(timeout=5)
-            # del active_spammers[username] # Usuń po całkowitym zatrzymaniu
+            # active_spanners[username]['main_thread'].join(timeout=5)
+            # del active_spanners[username] # Usuń po całkowitym zatrzymaniu
             return jsonify({"status": "success", "message": f"Wysłano sygnał zatrzymania spamowania dla użytkownika {username}. Proszę poczekać na zakończenie wątków."}), 200
         else:
             return jsonify({"status": "info", "message": f"Spamowanie dla użytkownika {username} nie było aktywne."}), 200
@@ -376,7 +418,7 @@ def get_spam_status(username):
     Endpoint do pobierania statusu spamowania i ostatnich wiadomości dla danego użytkownika.
     """
     with history_lock: # Zabezpiecz dostęp do active_spammers
-        spammer_info = active_spammers.get(username)
+        spammer_info = active_spanners.get(username)
 
         if spammer_info and spammer_info['main_thread'].is_alive():
             # Sprawdź, czy którykolwiek z wątków proxy jest nadal aktywny
