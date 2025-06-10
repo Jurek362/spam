@@ -1,19 +1,19 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS
+from flask_cors import CORS # Import CORS
 import requests
 import uuid
 import random
 import os
 import threading
 import time
-from collections import deque # Do przechowywania ostatnich wiadomości w wątkach
+from collections import deque # Do przechowywania ostatnich wiadomości
 
 app = Flask(__name__)
 CORS(app) # Dodane CORS, aby frontend mógł łączyć się z backendem
 
 # Globalny słownik do zarządzania aktywnymi sesjami spamującymi użytkowników.
 # Klucz: username (str), Wartość: {'stop_event': Event, 'proxy_threads': list, 'history': deque, 'request_counter': int}
-active_spammers = {}
+active_spammers = {} # Corrected: active_spammers
 # Używamy zamka do bezpiecznego dostępu do history_queue i request_counter
 history_lock = threading.Lock()
 
@@ -37,7 +37,7 @@ class NGLSenderBackend:
         else:
             try:
                 with open("proxies.txt", "r") as f:
-                    proxy_lines = [line.strip() for line in f.readlines() if line.strip()]
+                    proxy_lines = [line.strip() for f.readlines() if line.strip()]
             except FileNotFoundError:
                 print("Plik 'proxies.txt' nie znaleziony i zmienna środowiskowa PROXY_LIST nie ustawiona. Wysyłanie bez proxy.")
                 return None
@@ -76,8 +76,24 @@ class NGLSenderBackend:
             "referrer": ""
         }
 
-        proxy_config = {"http": proxy_url, "https": proxy_url}
-        used_proxy_display = proxy_url.replace("http://", "").split("@")[-1] # Pokazujemy tylko IP:Port
+        proxy_config = None
+        used_proxy_display = "Bez proxy"
+        
+        if proxy_url: # Sprawdź, czy proxy_url nie jest None
+            selected_proxy = proxy_url # Użyj przekazanego proxy_url
+            proxy_config = {"http": selected_proxy, "https": selected_proxy}
+            try:
+                # Wyciągnij informacje o proxy do logowania (bez hasła)
+                proxy_parts = selected_proxy.replace("http://", "").split("@")
+                if len(proxy_parts) == 2:
+                    proxy_ip_port = proxy_parts[1]
+                    used_proxy_display = f"{proxy_ip_port}" # Bez "Proxy: " dla czystszego wyświetlania na froncie
+                else:
+                    used_proxy_display = selected_proxy # Jeśli format nie pasuje, wyświetl cały URL
+            except:
+                used_proxy_display = "Ukryte proxy (błąd parsowania)"
+        else: # Jeśli brak proxy, upewnij się, że proxy_config jest None
+            proxy_config = None
 
         try:
             response = requests.post(api_url, headers=headers, data=data, proxies=proxy_config, timeout=10)
@@ -141,7 +157,7 @@ class NGLSenderBackend:
                 "request_num": request_num, # Numer żądania w sesji
                 "timestamp": time.time(), # Unix timestamp
                 "status": result["status"],
-                "message": message,
+                "message": message, # Oryginalna wiadomość, która była wysyłana
                 "username": username,
                 "deviceId": current_device_id,
                 "response_message": result["message"],
@@ -233,7 +249,9 @@ def send_message_endpoint():
     if not username or not message:
         return jsonify({"status": "error", "message": "Brakuje nazwy użytkownika lub treści wiadomości w żądaniu."}), 400
 
-    result = ngl_sender_backend.send_single_message_via_proxy(username, message, deviceId, random.choice(ngl_sender_backend.proxies) if ngl_sender_backend.proxies else None)
+    # Dla pojedynczej wiadomości losowo wybierz proxy, jeśli są dostępne
+    selected_proxy_url = random.choice(ngl_sender_backend.proxies) if ngl_sender_backend.proxies else None
+    result = ngl_sender_backend.send_single_message_via_proxy(username, message, deviceId, selected_proxy_url)
     return jsonify(result), 200 if result["status"] == "success" else 500
 
 @app.route('/start_spam', methods=['POST'])
@@ -254,7 +272,8 @@ def start_spam_endpoint():
         return jsonify({"status": "error", "message": "Brakuje nazwy użytkownika, treści wiadomości lub Device ID."}), 400
 
     with history_lock: # Zabezpiecz dostęp do active_spammers
-        if username in active_spanners and active_spanners[username]['main_thread'].is_alive():
+        # Corrected: active_spammers
+        if username in active_spammers and active_spammers[username]['main_thread'].is_alive():
             return jsonify({"status": "error", "message": f"Spamowanie dla użytkownika {username} już jest aktywne."}), 409 # Conflict
 
         stop_event = threading.Event()
@@ -267,7 +286,7 @@ def start_spam_endpoint():
         main_thread.daemon = True
         main_thread.start()
 
-        active_spanners[username] = {
+        active_spammers[username] = { # Corrected: active_spammers
             'main_thread': main_thread,
             'stop_event': stop_event,
             'history': history_queue,
@@ -293,11 +312,12 @@ def stop_spam_endpoint():
         return jsonify({"status": "error", "message": "Brakuje nazwy użytkownika."}), 400
 
     with history_lock: # Zabezpiecz dostęp do active_spammers
-        if username in active_spanners and active_spanners[username]['main_thread'].is_alive():
-            active_spanners[username]['stop_event'].set() # Sygnalizuj wątkowi, aby się zatrzymał
+        # Corrected: active_spammers
+        if username in active_spammers and active_spammers[username]['main_thread'].is_alive():
+            active_spammers[username]['stop_event'].set() # Corrected: active_spammers
             # Opcjonalnie: poczekaj na zakończenie wątku (thread.join()), ale może zablokować HTTP
             # active_spammers[username]['main_thread'].join(timeout=5)
-            # del active_spanners[username] # Usuń po całkowitym zatrzymaniu
+            # del active_spammers[username] # Usuń po całkowitym zatrzymaniu
             return jsonify({"status": "success", "message": f"Wysłano sygnał zatrzymania spamowania dla użytkownika {username}. Proszę poczekać na zakończenie wątków."}), 200
         else:
             return jsonify({"status": "info", "message": f"Spamowanie dla użytkownika {username} nie było aktywne."}), 200
@@ -308,7 +328,7 @@ def get_spam_status(username):
     Endpoint do pobierania statusu spamowania i ostatnich wiadomości dla danego użytkownika.
     """
     with history_lock: # Zabezpiecz dostęp do active_spammers
-        spammer_info = active_spanners.get(username)
+        spammer_info = active_spammers.get(username) # Corrected: active_spammers
 
         if spammer_info and spammer_info['main_thread'].is_alive():
             # Sprawdź, czy którykolwiek z wątków proxy jest nadal aktywny
