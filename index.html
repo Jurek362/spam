@@ -390,10 +390,13 @@
                 flex-direction: column; /* Ułożenie przycisków w kolumnie */
             }
         }
+        /* Usunięto style dla .activation-screen, ponieważ ekran aktywacji jest usuwany */
     </style>
 </head>
 <body>
-    <div class="container">
+    <!-- Usunięto: Ekran aktywacji -->
+
+    <div class="container" id="mainAppContainer">
         <div class="header">
             <h1>JPG Spammer</h1>
             <p>Wyślij anonimową wiadomość przez NGL.link</p>
@@ -468,6 +471,14 @@
                 this.isSpamming = false; // Flaga stanu spamowania
                 this.isHistoryVisible = false; // Nowa flaga do kontroli widoczności historii
                 
+                this.initializeApp(); // Inicjalizuje aplikację bezpośrednio
+            }
+
+            // Usunięto: getCookie() i setCookie()
+
+            initializeApp() {
+                // Nie ma już ekranu aktywacji, więc pokazujemy główny kontener od razu
+                document.getElementById('mainAppContainer').style.display = 'block'; 
                 this.initializeUI();
                 this.bindEvents();
                 this.loadHistory(); 
@@ -475,7 +486,6 @@
             }
 
             generateDeviceId() {
-                // Generuje losowy UUID-like string jako deviceId
                 return 'device_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now().toString(36);
             }
 
@@ -483,7 +493,6 @@
                 document.getElementById('deviceIdDisplay').textContent = this.deviceId;
                 document.getElementById('messageResult').innerHTML = '';
                 this.updateButtonsState(false); 
-                // Ustaw początkową widoczność historii na podstawie flagi isHistoryVisible
                 document.getElementById('messageHistory').style.display = this.isHistoryVisible ? 'block' : 'none';
                 document.getElementById('toggleOutputButton').textContent = this.isHistoryVisible ? 'Ukryj Output' : 'Pokaż Output';
             }
@@ -497,9 +506,9 @@
                     stopButton.disabled = !this.isSpamming;
                     stopButton.style.display = this.isSpamming ? 'block' : 'none';
                     startButton.querySelector('.button-text').style.display = this.isSpamming ? 'none' : 'inline';
-                    startButton.querySelector('.loading').style.display = this.isSpamming ? 'flex' : 'none';
+                    startButton.querySelector('.loading').style.display = 'none'; 
                     stopButton.querySelector('.button-text').style.display = this.isSpamming ? 'inline' : 'none';
-                    stopButton.querySelector('.loading').style.display = this.isSpamming ? 'none' : 'flex'; 
+                    stopButton.querySelector('.loading').style.display = 'none'; 
                 } else {
                     startButton.disabled = true;
                     stopButton.disabled = true;
@@ -532,7 +541,6 @@
             loadHistory() {
                 const saved = sessionStorage.getItem('ngl_message_history');
                 this.messageHistory = saved ? JSON.parse(saved) : [];
-                // Nie wyświetlaj historii od razu, tylko załaduj
             }
 
             saveHistory() {
@@ -545,19 +553,18 @@
                     this.messageHistory = this.messageHistory.slice(0, 50);
                 }
                 this.saveHistory();
-                if (this.isHistoryVisible) { // Tylko wyświetl, jeśli output jest widoczny
+                if (this.isHistoryVisible) { 
                     this.displayHistory();
                 }
             }
 
             displayHistory() {
-                const historyContainer = document.getElementById('messageHistory');
                 const historyList = document.getElementById('historyList');
                 const totalSentCounter = document.getElementById('totalSentCounter');
                 const successCounter = document.getElementById('successCounter');
                 const errorCounter = document.getElementById('errorCounter');
                 
-                historyList.innerHTML = ''; // Wyczyść przed ponownym renderowaniem
+                historyList.innerHTML = ''; 
                 
                 let totalSent = 0;
                 let totalSuccess = 0;
@@ -615,7 +622,7 @@
                 const stopButton = document.getElementById('stopButton');
                 const clearHistoryBtn = document.getElementById('clearHistory');
                 const exportHistoryBtn = document.getElementById('exportHistory');
-                const toggleOutputButton = document.getElementById('toggleOutputButton'); // Nowy przycisk
+                const toggleOutputButton = document.getElementById('toggleOutputButton'); 
 
                 messageTextarea.addEventListener('input', () => {
                     const currentLength = messageTextarea.value.length;
@@ -646,7 +653,7 @@
                     this.exportHistory();
                 });
 
-                toggleOutputButton.addEventListener('click', () => this.toggleOutputVisibility()); // Obsługa nowego przycisku
+                toggleOutputButton.addEventListener('click', () => this.toggleOutputVisibility()); 
             }
 
             toggleOutputVisibility() {
@@ -657,7 +664,7 @@
                 if (this.isHistoryVisible) {
                     historyContainer.style.display = 'block';
                     toggleButton.textContent = 'Ukryj Output';
-                    this.displayHistory(); // Wyświetl historię po włączeniu widoczności
+                    this.displayHistory(); 
                 } else {
                     historyContainer.style.display = 'none';
                     toggleButton.textContent = 'Pokaż Output';
@@ -809,10 +816,7 @@
                                 newMessagesFound = true;
                             }
                         });
-                        // Nie wywołuj displayHistory tutaj, addToHistory już to robi warunkowo
-                        // if (newMessagesFound && this.isHistoryVisible) {
-                        //     this.displayHistory(); 
-                        // }
+                        
                         document.getElementById('totalSentCounter').textContent = data.total_sent_in_session;
                         document.getElementById('successCounter').textContent = data.successful_sends;
                         document.getElementById('errorCounter').textContent = data.failed_sends;
