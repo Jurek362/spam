@@ -57,7 +57,7 @@
         }
         button {
             padding: 12px 25px;
-            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); /* Zmieniony kolor na niebieski, bo to kopiowanie */
+            background: linear-gradient(135deg, #28a745 0%, #218838 100%); /* Zielony dla wysyłki */
             color: white;
             border: none;
             border-radius: 10px;
@@ -67,15 +67,23 @@
             transition: all 0.3s ease;
             margin-top: 15px;
             margin-bottom: 10px;
-            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.2);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.2);
         }
         button:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(52, 152, 219, 0.3);
+            box-shadow: 0 8px 20px rgba(40, 167, 69, 0.3);
         }
         button:active {
             transform: translateY(0);
         }
+        #copyKeyButton { /* Dodatkowy styl dla przycisku kopiowania, aby odróżnić */
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            margin-left: 10px;
+        }
+        #copyKeyButton:hover {
+            box-shadow: 0 8px 20px rgba(52, 152, 219, 0.3);
+        }
+
         .info-message {
             margin-top: 20px;
             font-size: 0.9rem;
@@ -95,17 +103,19 @@
 </head>
 <body>
     <div class="container">
-        <h1>Generuj Klucz Aktywacyjny</h1>
-        <p>Twój klucz aktywacyjny został automatycznie zapisany w ciasteczkach. Skopiuj go i użyj w spamerce.</p>
+        <h1>Wygeneruj i Ustaw Klucz Aktywacyjny</h1>
+        <p>Wygeneruj klucz i wyślij go do backendu. Będzie on używany do aktywacji spamerki.</p>
         <div class="key-display" id="activationKeyDisplay"></div>
-        <button id="copyKeyButton">Kopiuj Klucz</button>
+        <div>
+            <button id="generateAndSendKeyButton">Wygeneruj i Wyślij Klucz do Backendu</button>
+            <button id="copyKeyButton" style="display: none;">Kopiuj Klucz</button>
+        </div>
         <p class="info-message" id="message"></p>
         <a href="index.html">Przejdź do Spamerki</a>
     </div>
 
     <script>
         function generateUUID() {
-            // Generuje standardowy UUID v4
             return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
                 var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
                 return v.toString(16);
@@ -135,29 +145,54 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             const keyDisplay = document.getElementById('activationKeyDisplay');
-            const copyButton = document.getElementById('copyKeyButton');
+            const generateAndSendKeyButton = document.getElementById('generateAndSendKeyButton');
+            const copyKeyButton = document.getElementById('copyKeyButton');
             const messageElem = document.getElementById('message');
+            const backendBaseUrl = 'https://spam-0p8u.onrender.com'; // Ten sam URL co w głównej aplikacji
 
-            let currentKey = getCookie('activationKey');
+            let generatedKey = null; // Będzie przechowywał aktualnie wygenerowany klucz
 
-            if (!currentKey) {
-                // Jeśli klucz nie istnieje, wygeneruj nowy i zapisz go
-                currentKey = generateUUID();
-                setCookie('activationKey', currentKey, 365); // Klucz ważny przez 365 dni
-                keyDisplay.textContent = currentKey;
-                messageElem.textContent = "Nowy klucz został wygenerowany i zapisany w ciasteczkach!";
-            } else {
-                // Jeśli klucz już istnieje, po prostu go wyświetl
-                keyDisplay.textContent = currentKey;
-                messageElem.textContent = "Twój klucz jest już zapisany w ciasteczkach.";
-            }
+            // Generuj klucz od razu przy załadowaniu strony
+            generatedKey = generateUUID();
+            keyDisplay.textContent = generatedKey;
+            messageElem.textContent = "Klucz został wygenerowany. Wyślij go do backendu.";
+            copyKeyButton.style.display = 'inline-block'; // Pokaż przycisk kopiowania
 
-            copyButton.addEventListener('click', () => {
+            generateAndSendKeyButton.addEventListener('click', async () => {
+                if (!generatedKey) {
+                    messageElem.textContent = "Najpierw wygeneruj klucz.";
+                    return;
+                }
+
+                messageElem.textContent = "Wysyłanie klucza do backendu...";
+                try {
+                    const response = await fetch(`${backendBaseUrl}/set_master_key`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ key: generatedKey })
+                    });
+                    const data = await response.json();
+
+                    if (response.ok && data.status === 'success') {
+                        messageElem.textContent = data.message;
+                        // Opcjonalnie: zablokuj przycisk po pomyślnym ustawieniu, aby wymusić jednorazowość
+                        // generateAndSendKeyButton.disabled = true;
+                        // generateAndSendKeyButton.textContent = "Klucz ustawiony";
+                    } else {
+                        messageElem.textContent = data.message || "Wystąpił błąd podczas wysyłania klucza do backendu.";
+                    }
+                } catch (error) {
+                    console.error('Błąd sieci podczas wysyłania klucza:', error);
+                    messageElem.textContent = "Błąd połączenia z backendem. Spróbuj ponownie.";
+                }
+            });
+
+            copyKeyButton.addEventListener('click', () => {
                 const keyToCopy = keyDisplay.textContent;
                 navigator.clipboard.writeText(keyToCopy).then(() => {
                     messageElem.textContent = "Klucz skopiowany do schowka!";
                     setTimeout(() => {
-                        messageElem.textContent = "Twój klucz jest już zapisany w ciasteczkach."; 
+                        messageElem.textContent = "Klucz został wygenerowany. Wyślij go do backendu."; // Przywróć oryginalny tekst
                     }, 2000);
                 }).catch(err => {
                     console.error('Błąd kopiowania:', err);
