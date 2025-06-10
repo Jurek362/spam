@@ -7,14 +7,15 @@ import os
 import threading
 import time
 from collections import deque # Do przechowywania ostatnich wiadomości
-# Usunięto import re, firebase_admin, credentials, firestore, datetime, timedelta, json
+import re # Importujemy moduł do wyrażeń regularnych
 
 app = Flask(__name__)
 CORS(app) # Dodane CORS, aby frontend mógł łączyć się z backendem
 
-# Usunięto: UUID_PATTERN
+# Wzorzec do walidacji formatu UUID (zachowany, jeśli będzie potrzebny do innych celów, ale nie dla kluczy)
+UUID_PATTERN = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$', re.IGNORECASE)
 
-# Usunięto: _backend_master_key
+# Usunięto: Globalna zmienna _backend_master_key
 
 # Globalny słownik do zarządzania aktywnymi sesjami spamującymi użytkowników.
 # Klucz: username (str), Wartość: {'stop_event': Event, 'proxy_threads': list, 'history': deque, 'request_counter': int}
@@ -234,7 +235,8 @@ class NGLSenderBackend:
         
         # Zapisz wątki do globalnego słownika
         with history_lock: # Zabezpiecz dostęp do active_spammers
-            active_spanners[username]['proxy_threads'] = proxy_threads
+            # Poprawiona literówka: active_spanners -> active_spammers
+            active_spammers[username]['proxy_threads'] = proxy_threads 
 
         # Główny wątek orchestratora po prostu czeka na sygnał stop
         stop_event.wait() # Czekaj, aż stop_event zostanie ustawiony
@@ -261,15 +263,8 @@ def home():
             "start_spam": "/start_spam [POST]",
             "stop_spam": "/stop_spam [POST]",
             "spam_status": "/spam_status/<username> [GET]"
-            # Usunięto: "register_activation_key", "activate"
         }
     })
-
-# Usunięto: @app.route('/register_activation_key', methods=['POST'])
-# Usunięto: def register_activation_key_endpoint():
-
-# Usunięto: @app.route('/activate', methods=['POST'])
-# Usunięto: def activate_endpoint():
 
 @app.route('/send_ngl_message', methods=['POST'])
 def send_message_endpoint():
@@ -319,7 +314,7 @@ def start_spam_endpoint():
 
         stop_event = threading.Event()
         history_queue = deque(maxlen=200) # Przechowuj więcej wpisów historii
-        request_counter_lock = threading.Lock() # Zamek dla licznika żądań
+        request_counter_lock = threading.Lock() # Zamek dla licznika żądzeń
 
         # Główny wątek orchestratora
         main_thread = threading.Thread(target=ngl_sender_backend._spam_orchestrator, 
