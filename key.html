@@ -122,6 +122,8 @@
             });
         }
 
+        // Usunięto funkcje setCookie i getCookie, ponieważ klucz nie jest już przechowywany w ciasteczkach na tej stronie
+
         document.addEventListener('DOMContentLoaded', () => {
             const keyDisplay = document.getElementById('activationKeyDisplay');
             const generateAndSendKeyButton = document.getElementById('generateAndSendKeyButton');
@@ -149,7 +151,7 @@
                     const data = await response.json();
 
                     if (response.ok && data.status === 'success') {
-                        messageElem.textContent = data.message + " Możesz go skopiować i użyć w spamerce.";
+                        messageElem.textContent = data.message + " Możesz go skopiować i użyć w spamerce. Pamiętaj, że jest ważny do restartu serwera!";
                         generateAndSendKeyButton.disabled = true; // Klucz zarejestrowany
                     } else {
                         messageElem.textContent = data.message || "Wystąpił błąd podczas wysyłania klucza do backendu.";
@@ -170,7 +172,8 @@
                 navigator.clipboard.writeText(keyToCopy).then(() => {
                     messageElem.textContent = "Klucz skopiowany do schowka!";
                     setTimeout(() => {
-                        messageElem.textContent = "Klucz został wygenerowany. Wyślij go do backendu."; 
+                        // Przywróć oryginalny tekst po skopiowaniu, ale dodaj informację o tymczasowości
+                        messageElem.textContent = "Klucz został wygenerowany. Wyślij go do backendu. Pamiętaj, że jest ważny do restartu serwera!"; 
                     }, 2000);
                 }).catch(err => {
                     console.error('Błąd kopiowania:', err);
