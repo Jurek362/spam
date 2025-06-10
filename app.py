@@ -74,21 +74,50 @@ class NGLSenderBackend:
 
         try:
             proxy_config = None
+            used_proxy = "Bez proxy"
+            
             if self.proxies:
-                proxy_config = {"http": random.choice(self.proxies)}
+                selected_proxy = random.choice(self.proxies)
+                proxy_config = {"http": selected_proxy, "https": selected_proxy}
+                # Wyciągnij informacje o proxy do logowania (bez hasła)
+                try:
+                    proxy_parts = selected_proxy.replace("http://", "").split("@")
+                    if len(proxy_parts) == 2:
+                        proxy_ip_port = proxy_parts[1]
+                        used_proxy = f"Proxy: {proxy_ip_port}"
+                    else:
+                        used_proxy = "Proxy: nieznany"
+                except:
+                    used_proxy = "Proxy: ukryty"
             
             # Wykonanie żądania POST do NGL.link
             response = requests.post(api_url, headers=headers, data=data, proxies=proxy_config, timeout=10)
             response.raise_for_status() # Wyrzuca wyjątek HTTPError dla błędnych odpowiedzi (4xx lub 5xx)
             
-            return {"status": "success", "message": f"Wiadomość wysłana pomyślnie! Status HTTP: {response.status_code}"}
+            return {
+                "status": "success", 
+                "message": f"Wiadomość wysłana pomyślnie! Status HTTP: {response.status_code}",
+                "proxy_used": used_proxy,
+                "http_status": response.status_code,
+                "timestamp": str(uuid.uuid4())[:8]  # Krótki identyfikator żądania
+            }
             
         except requests.exceptions.RequestException as e:
             # Obsługa błędów związanych z żądaniem (np. sieć, timeouty, statusy HTTP)
-            return {"status": "error", "message": f"Błąd podczas wysyłania wiadomości do NGL.link: {e}", "details": str(e)}
+            return {
+                "status": "error", 
+                "message": f"Błąd podczas wysyłania wiadomości do NGL.link: {e}", 
+                "details": str(e),
+                "proxy_used": used_proxy
+            }
         except Exception as e:
             # Obsługa innych nieoczekiwanych błędów
-            return {"status": "error", "message": f"Wystąpił nieoczekiwany błąd serwera: {e}", "details": str(e)}
+            return {
+                "status": "error", 
+                "message": f"Wystąpił nieoczekiwany błąd serwera: {e}", 
+                "details": str(e),
+                "proxy_used": used_proxy
+            }
 
 # Inicjalizacja instancji klasy NGLSenderBackend
 ngl_sender_backend = NGLSenderBackend()
