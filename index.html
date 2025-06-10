@@ -135,10 +135,10 @@
 
         .send-button:hover, .stop-button:hover {
             transform: translateY(-2px); /* Delikatne przesunięcie w górę przy najechaniu myszą */
-            box_shadow: 0 10px 25px rgba(102, 126, 234, 0.3); /* Większy cień przy najechaniu */
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3); /* Większy cień przy najechaniu */
         }
         .stop-button:hover {
-            box_shadow: 0 10px 25px rgba(231, 76, 60, 0.3);
+            box-shadow: 0 10px 25px rgba(231, 76, 60, 0.3);
         }
 
         .send-button:active, .stop-button:active {
@@ -147,15 +147,15 @@
 
         .send-button:disabled, .stop-button:disabled {
             opacity: 0.6; /* Zmniejszona przezroczystość gdy wyłączony */
-            cursor: not_allowed; /* Kursor wskazujący na brak możliwości kliknięcia */
+            cursor: not-allowed; /* Kursor wskazujący na brak możliwości kliknięcia */
             transform: none; /* Brak transformacji gdy wyłączony */
         }
 
         /* Stylizacja stanu ładowania przycisku */
         .loading {
             display: none; /* Domyślnie ukryty */
-            align_items: center; /* Wyśrodkowanie elementów w pionie */
-            justify_content: center; /* Wyśrodkowanie elementów w poziomie */
+            align-items: center; /* Wyśrodkowanie elementów w pionie */
+            justify-content: center; /* Wyśrodkowanie elementów w poziomie */
             gap: 10px; /* Odstęp między elementami */
         }
 
@@ -163,8 +163,8 @@
             width: 20px; /* Szerokość spinera */
             height: 20px; /* Wysokość spinera */
             border: 2px solid rgba(255, 255, 255, 0.3); /* Częściowo przezroczysta ramka */
-            border_top: 2px solid white; /* Górna część ramki biała */
-            border_radius: 50%; /* Kształt koła */
+            border-top: 2px solid white; /* Górna część ramki biała */
+            border-radius: 50%; /* Kształt koła */
             animation: spin 1s linear infinite; /* Animacja obracania */
         }
 
@@ -176,26 +176,26 @@
         /* Stylizacja komunikatów wynikowych */
         .message {
             padding: 15px; /* Wewnętrzne odstępy */
-            border_radius: 12px; /* Zaokrąglone rogi */
-            margin_top: 20px; /* Górny margines */
-            font_weight: 500; /* Lekkie pogrubienie */
+            border-radius: 12px; /* Zaokrąglone rogi */
+            margin-top: 20px; /* Górny margines */
+            font-weight: 500; /* Lekkie pogrubienie */
             animation: slideIn 0.3s ease-out; /* Animacja pojawiania się */
         }
 
         .message.success {
-            background: linear_gradient(135deg, #d4edda, #c3e6cb); /* Zielony gradient dla sukcesu */
+            background: linear-gradient(135deg, #d4edda, #c3e6cb); /* Zielony gradient dla sukcesu */
             color: #155724; /* Ciemnozielony kolor tekstu */
             border: 1px solid #c3e6cb; /* Zielona ramka */
         }
 
         .message.error {
-            background: linear_gradient(135deg, #f8d7da, #f5c6cb); /* Czerwony gradient dla błędu */
+            background: linear-gradient(135deg, #f8d7da, #f5c6cb); /* Czerwony gradient dla błędu */
             color: #721c24; /* Ciemnoczerwony kolor tekstu */
             border: 1px solid #f5c6cb; /* Czerwona ramka */
         }
 
         .message.info {
-            background: linear_gradient(135deg, #d1ecf1, #bee5eb);
+            background: linear-gradient(135deg, #d1ecf1, #bee5eb);
             color: #0c5460;
             border: 1px solid #bee5eb;
         }
@@ -215,10 +215,10 @@
         .device-id-info {
             background: rgba(102, 126, 234, 0.1); /* Półprzezroczyste tło w kolorze purpury */
             border: 1px solid rgba(102, 126, 234, 0.2); /* Delikatna ramka */
-            border_radius: 8px; /* Zaokrąglone rogi */
+            border-radius: 8px; /* Zaokrąglone rogi */
             padding: 12px; /* Wewnętrzne odstępy */
-            margin_top: 10px; /* Górny margines */
-            font_size: 0.85rem; /* Rozmiar czcionki */
+            margin-top: 10px; /* Górny margines */
+            font-size: 0.85rem; /* Rozmiar czcionki */
             color: #555; /* Szary kolor tekstu */
         }
 
@@ -230,48 +230,48 @@
             }
 
             .header h1 {
-                font_size: 1.8rem; /* Mniejszy rozmiar czcionki nagłówka */
+                font-size: 1.8rem; /* Mniejszy rozmiar czcionki nagłówka */
             }
 
             .header p {
-                font_size: 1rem; /* Mniejszy rozmiar czcionki paragrafu */
+                font-size: 1rem; /* Mniejszy rozmiar czcionki paragrafu */
             }
 
             .action-buttons {
-                flex_direction: column; /* Przyciski w kolumnie na małych ekranach */
+                flex-direction: column; /* Przyciski w kolumnie na małych ekranach */
             }
         }
 
         /* Stylizacja historii wiadomości */
         .message-history {
-            margin_top: 30px; /* Górny margines */
+            margin-top: 30px; /* Górny margines */
             padding: 25px; /* Wewnętrzne odstępy */
             background: rgba(255, 255, 255, 0.9); /* Półprzezroczyste białe tło */
-            border_radius: 15px; /* Zaokrąglone rogi */
-            box_shadow: 0 5px 15px rgba(0, 0, 0, 0.1); /* Delikatny cień */
+            border-radius: 15px; /* Zaokrąglone rogi */
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1); /* Delikatny cień */
             /* Zmiana tutaj: Domyślnie ukryte, JavaScript będzie nim sterował */
             display: none; 
         }
 
         .message-history h3 {
             color: #333; /* Ciemnoszary kolor tekstu */
-            margin_bottom: 20px; /* Dolny margines */
-            font_size: 1.3rem; /* Rozmiar czcionki */
-            text_align: center; /* Centrowanie tekstu */
+            margin-bottom: 20px; /* Dolny margines */
+            font-size: 1.3rem; /* Rozmiar czcionki */
+            text-align: center; /* Centrowanie tekstu */
         }
 
         .history-controls {
             display: flex; /* Użycie flexboxa */
             gap: 10px; /* Odstęp między przyciskami */
-            justify_content: center; /* Centrowanie przycisków */
-            margin_bottom: 20px; /* Dolny margines */
+            justify-content: center; /* Centrowanie przycisków */
+            margin-bottom: 20px; /* Dolny margines */
         }
 
         .clear-button, .export-button, .toggle-output-button { /* Dodano toggle-output-button */
             padding: 8px 16px; /* Wewnętrzne odstępy */
             border: none; /* Brak ramki */
-            border_radius: 8px; /* Zaokrąglone rogi */
-            font_size: 0.9rem; /* Rozmiar czcionki */
+            border-radius: 8px; /* Zaokrąglone rogi */
+            font-size: 0.9rem; /* Rozmiar czcionki */
             cursor: pointer; /* Kursor wskazujący na klikalność */
             transition: all 0.3s ease; /* Płynne przejścia */
         }
@@ -298,7 +298,7 @@
             background: #28a745; /* Zielone tło */
             color: white; /* Biały tekst */
             width: 100%; /* Pełna szerokość */
-            margin_top: 20px; /* Górny margines */
+            margin-top: 20px; /* Górny margines */
             padding: 12px; /* Większe odstępy */
         }
 
@@ -309,33 +309,33 @@
         .history-item {
             background: rgba(255, 255, 255, 0.8); /* Półprzezroczyste białe tło */
             border: 1px solid #e1e5e9; /* Cienka ramka */
-            border_radius: 10px; /* Zaokrąglone rogi */
+            border-radius: 10px; /* Zaokrąglone rogi */
             padding: 15px; /* Wewnętrzne odstępy */
-            margin_bottom: 15px; /* Dolny margines */
+            margin-bottom: 15px; /* Dolny margines */
             animation: slideIn 0.3s ease-out; /* Animacja pojawiania się */
         }
 
         .history-item.success {
-            border_left: 4px solid #27ae60; /* Zielona lewa ramka dla sukcesu */
+            border-left: 4px solid #27ae60; /* Zielona lewa ramka dla sukcesu */
         }
 
         .history-item.error {
-            border_left: 4px solid #e74c3c; /* Czerwona lewa ramka dla błędu */
+            border-left: 4px solid #e74c3c; /* Czerwona lewa ramka dla błędu */
         }
 
         .history-header {
             display: flex; /* Użycie flexboxa */
-            justify_content: space-between; /* Rozłożenie elementów na skrajach */
-            align_items: center; /* Wyśrodkowanie w pionie */
-            margin_bottom: 10px; /* Dolny margines */
-            font_weight: 600; /* Pogrubienie czcionki */
+            justify-content: space-between; /* Rozłożenie elementów na skrajach */
+            align-items: center; /* Wyśrodkowanie w pionie */
+            margin-bottom: 10px; /* Dolny margines */
+            font-weight: 600; /* Pogrubienie czcionki */
         }
 
         .history-status {
             padding: 4px 8px; /* Wewnętrzne odstępy */
-            border_radius: 12px; /* Zaokrąglone rogi */
-            font_size: 0.8rem; /* Rozmiar czcionki */
-            font_weight: 500; /* Lekkie pogrubienie */
+            border-radius: 12px; /* Zaokrąglone rogi */
+            font-size: 0.8rem; /* Rozmiar czcionki */
+            font-weight: 500; /* Lekkie pogrubienie */
         }
 
         .history-status.success {
@@ -350,15 +350,15 @@
 
         .history-details {
             display: grid; /* Użycie siatki CSS */
-            grid_template_columns: 1fr 1fr; /* Dwie kolumny o równej szerokości */
+            grid-template-columns: 1fr 1fr; /* Dwie kolumny o równej szerokości */
             gap: 10px; /* Odstęp między elementami siatki */
-            margin_bottom: 10px; /* Dolny margines */
-            font_size: 0.9rem; /* Rozmiar czcionki */
+            margin-bottom: 10px; /* Dolny margines */
+            font-size: 0.9rem; /* Rozmiar czcionki */
         }
 
         .history-detail {
             display: flex; /* Użycie flexboxa */
-            align_items: center; /* Wyśrodkowanie w pionie */
+            align-items: center; /* Wyśrodkowanie w pionie */
             gap: 5px; /* Odstęp między elementami */
         }
 
@@ -369,101 +369,101 @@
         .history-message {
             background: rgba(102, 126, 234, 0.1); /* Półprzezroczyste tło w kolorze purpury */
             padding: 10px; /* Wewnętrzne odstępy */
-            border_radius: 8px; /* Zaokrąglone rogi */
-            font_style: italic; /* Kursywa */
-            margin_top: 10px; /* Górny margines */
+            border-radius: 8px; /* Zaokrąglone rogi */
+            font-style: italic; /* Kursywa */
+            margin-top: 10px; /* Górny margines */
         }
 
         .proxy-info {
             color: #667eea; /* Kolor proxy info */
-            font_family: monospace; /* Czcionka monospace */
-            font_size: 0.85rem; /* Rozmiar czcionki */
+            font-family: monospace; /* Czcionka monospace */
+            font-size: 0.85rem; /* Rozmiar czcionki */
         }
 
         /* Media queries dla responsywności historii */
         @media (max-width: 600px) {
             .history-details {
-                grid_template_columns: 1fr; /* Jedna kolumna na małych ekranach */
+                grid-template-columns: 1fr; /* Jedna kolumna na małych ekranach */
             }
             
             .history-controls {
-                flex_direction: column; /* Ułożenie przycisków w kolumnie */
+                flex-direction: column; /* Ułożenie przycisków w kolumnie */
             }
         }
         /* Style for Activation Screen */
         .activation-screen {
             background: rgba(255, 255, 255, 0.98);
-            backdrop_filter: blur(15px);
-            border_radius: 20px;
-            box_shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(15px);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
             padding: 40px;
             width: 100%;
-            max_width: 400px;
-            text_align: center;
+            max-width: 400px;
+            text-align: center;
             border: 1px solid rgba(255, 255, 255, 0.3);
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            z_index: 1000;
+            z-index: 1000;
         }
 
         .activation-screen h2 {
             color: #333;
-            font_size: 1.8rem;
-            margin_bottom: 20px;
-            background: linear_gradient(135deg, #764ba2, #667eea);
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #764ba2, #667eea);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            background_clip: text;
+            background-clip: text;
         }
 
         .activation-screen input[type="text"] {
             width: calc(100% - 30px); /* Szerokość z paddingiem */
             padding: 15px;
-            margin_bottom: 20px;
+            margin-bottom: 20px;
             border: 2px solid #ddd;
-            border_radius: 10px;
-            font_size: 1rem;
-            text_align: center;
+            border-radius: 10px;
+            font-size: 1rem;
+            text-align: center;
             transition: all 0.3s ease;
         }
 
         .activation-screen input[type="text"]:focus {
             outline: none;
-            border_color: #667eea;
-            box_shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
         }
 
         .activation-screen button {
             padding: 12px 25px;
-            background: linear_gradient(135deg, #28a745 0%, #218838 100%);
+            background: linear-gradient(135deg, #28a745 0%, #218838 100%);
             color: white;
             border: none;
-            border_radius: 10px;
-            font_size: 1rem;
-            font_weight: 600;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
-            box_shadow: 0 5px 15px rgba(40, 167, 69, 0.2);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.2);
         }
 
         .activation-screen button:hover {
             transform: translateY(-2px);
-            box_shadow: 0 8px 20px rgba(40, 167, 69, 0.3);
+            box-shadow: 0 8px 20px rgba(40, 167, 69, 0.3);
         }
 
         .activation-screen .error-message {
             color: #e74c3c;
-            margin_top: 15px;
-            font_size: 0.9rem;
+            margin-top: 15px;
+            font-size: 0.9rem;
         }
 
         .activation-screen .info-message {
             color: #666;
-            margin_top: 15px;
-            font_size: 0.85rem;
-            line_height: 1.4;
+            margin-top: 15px;
+            font-size: 0.85rem;
+            line-height: 1.4;
         }
     </style>
 </head>
@@ -475,7 +475,7 @@
         <button id="activateButton">Aktywuj</button>
         <div class="error-message" id="activationErrorMessage"></div>
         <div class="info-message">
-            Jeśli nie masz klucza, przejdź na stronę <a href="key.html" target="_blank">key.html</a>, wygeneruj go i wklej tutaj.
+            Jeśli nie masz klucza, przejdź na stronę <a href="key.html" target="_blank">key.html</a>.
         </div>
     </div>
 
@@ -546,9 +546,6 @@
     </div>
 
     <script>
-        // STAŁY KLUCZ AKTYWACYJNY (TEN SAM W BACKENDZIE I key.html)
-        const MASTER_ACTIVATION_KEY = "YourSecretActivationKey123"; // ZMIEŃ NA WŁASNY, UNIKALNY KLUCZ!
-
         class NGLSenderFrontend {
             constructor() {
                 this.deviceId = this.generateDeviceId();
@@ -591,8 +588,8 @@
                 const activationKeyInput = document.getElementById('activationKeyInput');
                 const activationErrorMessage = document.getElementById('activationErrorMessage');
 
-                // Jeśli klucz już jest w ciasteczkach i jest poprawny, pokaż aplikację
-                if (storedActivationKey === MASTER_ACTIVATION_KEY) {
+                // Jeśli klucz istnieje w ciasteczkach i nie jest pusty, pokaż główną aplikację
+                if (storedActivationKey && storedActivationKey.trim() !== '') {
                     activationScreen.style.display = 'none';
                     mainAppContainer.style.display = 'block';
                     this.initializeUI();
@@ -600,7 +597,7 @@
                     this.loadHistory(); 
                     this.checkBackendStatus(); 
                 } else {
-                    // Klucz nie istnieje lub jest niepoprawny, pokaż ekran aktywacji
+                    // Klucz nie istnieje lub jest pusty, pokaż ekran aktywacji
                     mainAppContainer.style.display = 'none';
                     activationScreen.style.display = 'block';
                     
@@ -612,6 +609,7 @@
                         }
 
                         try {
+                            // Wysłanie klucza do backendu do weryfikacji
                             const response = await fetch(`${this.backendBaseUrl}/activate`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
@@ -620,6 +618,7 @@
                             const data = await response.json();
 
                             if (response.ok && data.status === 'success') {
+                                // Jeśli backend zaakceptuje klucz, zapisz go w ciasteczkach i przejdź do aplikacji
                                 this.setCookie('activationKey', enteredKey, 365); // Zapisz klucz na rok
                                 activationErrorMessage.textContent = '';
                                 activationScreen.style.display = 'none';
@@ -660,9 +659,9 @@
                     stopButton.disabled = !this.isSpamming;
                     stopButton.style.display = this.isSpamming ? 'block' : 'none';
                     startButton.querySelector('.button-text').style.display = this.isSpamming ? 'none' : 'inline';
-                    startButton.querySelector('.loading').style.display = this.isSpamming ? 'flex' : 'none';
+                    startButton.querySelector('.loading').style.display = 'none'; // Zawsze ukryty, chyba że faktycznie ładuje
                     stopButton.querySelector('.button-text').style.display = this.isSpamming ? 'inline' : 'none';
-                    stopButton.querySelector('.loading').style.display = this.isSpamming ? 'none' : 'flex'; 
+                    stopButton.querySelector('.loading').style.display = 'none'; // Zawsze ukryty, chyba że faktycznie ładuje
                 } else {
                     startButton.disabled = true;
                     stopButton.disabled = true;
@@ -872,8 +871,7 @@
                             message: message,
                             deviceId: this.deviceId,
                             interval: interval, 
-                            proxy_list: proxyListToSend,
-                            activation_key: this.getCookie('activationKey') // Dodaj klucz z ciasteczek
+                            proxy_list: proxyListToSend 
                         })
                     });
                     const data = await response.json();
